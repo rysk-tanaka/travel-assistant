@@ -1,0 +1,138 @@
+[project]
+name = "travel-assistant"
+version = "0.1.0"
+description = "AI-powered travel preparation assistant with Discord integration"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    {name = "rysk"},
+]
+keywords = ["discord", "bot", "travel", "assistant", "ai"]
+
+dependencies = [
+    "discord.py>=2.3.2",
+    "aiohttp>=3.8.0",
+    "aiofiles>=0.12.0",
+    "PyGithub>=1.59.0",
+    "python-frontmatter>=1.0.0",
+    "jinja2>=3.1.0",
+    "pydantic>=2.0.0",
+    "anthropic>=0.3.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "pandas>=2.0.0",
+    "structlog>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "hypothesis>=6.82.0",
+    "black>=23.0.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.4.0",
+    "ruff>=0.1.0",
+    "types-requests>=2.31.0",
+]
+
+[project.scripts]
+travel-assistant = "main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+exclude = [".venv"]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # Ruff-specific rules
+    "TCH", # flake8-type-checking
+    "PTH", # flake8-use-pathlib
+    "PL",  # Pylint
+]
+ignore = [
+    "G004",    # logging-f-string
+    "RUF001",  # ambiguous-unicode-character-string
+    "RUF002",  # ambiguous-unicode-character-docstring
+    "RUF003",  # ambiguous-unicode-character-comment
+    "PLR2004", # magic-value-comparison
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**" = ["S101", "PLR2004"]
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+enable_incomplete_feature = ["NewGenericSyntax"]
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "discord.*",
+    "anthropic.*",
+    "github.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
