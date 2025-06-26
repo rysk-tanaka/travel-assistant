@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import frontmatter
-from jinja2 import Environment, FileSystemLoader, Template, TemplateError
+from jinja2 import Environment, FileSystemLoader, TemplateError
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -29,7 +29,7 @@ class TemplateData(BaseModel):
     def from_file(cls, file_path: Path) -> "TemplateData":
         """ファイルからテンプレートデータを読み込む."""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 post = frontmatter.load(f)
 
             metadata = TemplateMetadataDict(
@@ -105,7 +105,9 @@ class MarkdownProcessor:
 
             # レンダリング
             rendered = template.render(**final_context)
-            logger.debug(f"Rendered template {template_name} with context keys: {list(context.keys())}")
+            logger.debug(
+                f"Rendered template {template_name} with context keys: {list(context.keys())}"
+            )
 
             return rendered
 
@@ -113,7 +115,9 @@ class MarkdownProcessor:
             logger.error(f"Template rendering error: {e}")
             raise TemplateNotFoundError(f"テンプレートレンダリングエラー: {e}")
 
-    def combine_templates(self, base_template: str, *module_templates: str, context: dict[str, Any]) -> str:
+    def combine_templates(
+        self, base_template: str, *module_templates: str, context: dict[str, Any]
+    ) -> str:
         """ベーステンプレートとモジュールを組み合わせてレンダリング."""
         logger.info(f"Combining templates: base={base_template}, modules={module_templates}")
 

@@ -27,14 +27,14 @@ def setup_logging(
     """
     # ログレベルの設定
     level = getattr(logging, log_level.upper(), logging.INFO)
-    
+
     # 標準ライブラリのログ設定
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=level,
     )
-    
+
     # structlogの設定
     processors = [
         structlog.stdlib.add_log_level,
@@ -45,7 +45,7 @@ def setup_logging(
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
     ]
-    
+
     if json_format:
         processors.append(structlog.processors.JSONRenderer())
     else:
@@ -55,19 +55,19 @@ def setup_logging(
                 pad_event=30,
             )
         )
-    
+
     structlog.configure(
         processors=processors,
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     # ファイル出力の設定
     if log_file:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(level)
-        
+
         # ファイル用のフォーマッター
         if json_format:
             # JSONの場合はstructlogの出力をそのまま使用
@@ -75,11 +75,9 @@ def setup_logging(
         else:
             # テキスト形式の場合
             file_handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
-        
+
         # ルートロガーにハンドラーを追加
         logging.getLogger().addHandler(file_handler)
 

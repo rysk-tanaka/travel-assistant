@@ -4,7 +4,6 @@ Application settings and configuration.
 環境変数から設定を読み込み、アプリケーション全体で使用する設定を管理します。
 """
 
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -37,7 +36,9 @@ class Settings(BaseSettings):
 
     # アプリケーション設定
     DEBUG: bool = Field(False, description="デバッグモード")
-    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field("INFO", description="ログレベル")
+    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
+        "INFO", description="ログレベル"
+    )
 
     # データ保存設定
     USER_DATA_PATH: str = Field("./data/user_data", description="ユーザーデータ保存パス")

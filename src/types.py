@@ -7,8 +7,9 @@ Python 3.12+の新しい型構文を使用します。
 
 from datetime import date, datetime
 from typing import Literal, TypedDict
-from pydantic import BaseModel, Field, field_validator, computed_field
 from uuid import uuid4
+
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 # Type aliases using Python 3.12+ syntax
 type ChecklistId = str
@@ -22,9 +23,11 @@ type ItemCategory = Literal[
     "移動関連", "仕事関連", "服装・身だしなみ", "生活用品", "金銭関連", "天気対応", "地域特有"
 ]
 
+
 # TypedDict definitions
 class ChecklistItemDict(TypedDict):
     """チェックリストアイテムの辞書表現."""
+
     name: str
     category: ItemCategory
     checked: bool
@@ -34,6 +37,7 @@ class ChecklistItemDict(TypedDict):
 
 class TripInfoDict(TypedDict):
     """旅行情報の辞書表現."""
+
     destination: DestinationName
     start_date: str  # ISO format (YYYY-MM-DD)
     end_date: str
@@ -44,6 +48,7 @@ class TripInfoDict(TypedDict):
 
 class WeatherDataDict(TypedDict):
     """天気情報の辞書表現."""
+
     average_temperature: float
     max_temperature: float
     min_temperature: float
@@ -54,6 +59,7 @@ class WeatherDataDict(TypedDict):
 
 class UserPreferencesDict(TypedDict):
     """ユーザー設定の辞書表現."""
+
     user_id: UserId
     default_transport: TransportMethod
     forgotten_items: list[str]
@@ -63,6 +69,7 @@ class UserPreferencesDict(TypedDict):
 
 class TemplateMetadataDict(TypedDict):
     """テンプレートメタデータの辞書表現."""
+
     template_type: TemplateType
     template_version: str
     last_updated: str
@@ -72,21 +79,25 @@ class TemplateMetadataDict(TypedDict):
 # Error types
 class TravelAssistantError(Exception):
     """Base exception for TravelAssistant."""
+
     pass
 
 
 class TemplateNotFoundError(TravelAssistantError):
     """テンプレートが見つからない場合の例外."""
+
     pass
 
 
 class WeatherAPIError(TravelAssistantError):
     """天気API関連のエラー."""
+
     pass
 
 
 class GitHubSyncError(TravelAssistantError):
     """GitHub同期関連のエラー."""
+
     pass
 
 

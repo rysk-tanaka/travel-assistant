@@ -3,7 +3,7 @@ pytest configuration and fixtures for TravelAssistant tests.
 """
 
 import asyncio
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest

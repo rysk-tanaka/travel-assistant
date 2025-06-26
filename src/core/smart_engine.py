@@ -4,11 +4,6 @@ Smart template engine for checklist generation.
 条件に応じてテンプレートを自動調整し、最適なチェックリストを生成します。
 """
 
-import asyncio
-from datetime import datetime
-from pathlib import Path
-from typing import Optional
-
 from src.config.settings import settings
 from src.types import (
     ChecklistItem,
@@ -48,23 +43,16 @@ class SmartTemplateEngine:
         # 3. テンプレートレンダリング
         if template_type == "sapporo_business":
             # 札幌出張専用テンプレート
-            rendered = self.markdown_processor.render_template(
-                "sapporo_business.md",
-                context
-            )
+            rendered = self.markdown_processor.render_template("sapporo_business.md", context)
         elif request.purpose == "business":
             # ビジネス用モジュラーテンプレート
             rendered = self.markdown_processor.combine_templates(
-                "base_travel.md",
-                "business.md",
-                context=context
+                "base_travel.md", "business.md", context=context
             )
         else:
             # レジャー用モジュラーテンプレート
             rendered = self.markdown_processor.combine_templates(
-                "base_travel.md",
-                "leisure.md",
-                context=context
+                "base_travel.md", "leisure.md", context=context
             )
 
         # 4. チェックリスト項目抽出
@@ -81,13 +69,10 @@ class SmartTemplateEngine:
             purpose=request.purpose,
             items=adjusted_items,
             user_id=request.user_id,
-            template_used=template_type
+            template_used=template_type,
         )
 
-        logger.info(
-            f"Generated checklist with {len(checklist.items)} items "
-            f"(ID: {checklist.id})"
-        )
+        logger.info(f"Generated checklist with {len(checklist.items)} items (ID: {checklist.id})")
 
         return checklist
 
@@ -116,7 +101,7 @@ class SmartTemplateEngine:
             "recommended_cash": f"{10000 + (request.duration * 10000):,}",
         }
 
-    def _get_transport_display(self, transport: Optional[str]) -> str:
+    def _get_transport_display(self, transport: str | None) -> str:
         """交通手段の表示名を取得."""
         transport_map = {
             "airplane": "飛行機",
@@ -137,10 +122,7 @@ class SmartTemplateEngine:
             category = self._normalize_category(category_name)
 
             item = ChecklistItem(
-                name=item_name,
-                category=category,
-                checked=checked,
-                auto_added=False
+                name=item_name, category=category, checked=checked, auto_added=False
             )
             items.append(item)
 
@@ -173,9 +155,7 @@ class SmartTemplateEngine:
         return "生活用品"  # デフォルト
 
     async def _apply_adjustments(
-        self,
-        items: list[ChecklistItem],
-        request: TripRequest
+        self, items: list[ChecklistItem], request: TripRequest
     ) -> list[ChecklistItem]:
         """各種調整を適用."""
         adjusted_items = items.copy()
@@ -211,41 +191,51 @@ class SmartTemplateEngine:
         if "北海道" in request.destination or "札幌" in request.destination:
             # 北海道特有の調整
             if month in [10, 11, 12, 1, 2, 3]:
-                items.append(ChecklistItem(
-                    name="防寒着（ダウンジャケット等）",
-                    category="服装・身だしなみ",
-                    auto_added=True,
-                    reason="北海道の冬は寒いため"
-                ))
-                items.append(ChecklistItem(
-                    name="手袋・マフラー",
-                    category="服装・身だしなみ",
-                    auto_added=True,
-                    reason="防寒対策"
-                ))
+                items.append(
+                    ChecklistItem(
+                        name="防寒着（ダウンジャケット等）",
+                        category="服装・身だしなみ",
+                        auto_added=True,
+                        reason="北海道の冬は寒いため",
+                    )
+                )
+                items.append(
+                    ChecklistItem(
+                        name="手袋・マフラー",
+                        category="服装・身だしなみ",
+                        auto_added=True,
+                        reason="防寒対策",
+                    )
+                )
 
             if month in [6, 7, 8]:
-                items.append(ChecklistItem(
-                    name="薄手の上着",
-                    category="服装・身だしなみ",
-                    auto_added=True,
-                    reason="北海道の夏は朝夕冷えるため"
-                ))
+                items.append(
+                    ChecklistItem(
+                        name="薄手の上着",
+                        category="服装・身だしなみ",
+                        auto_added=True,
+                        reason="北海道の夏は朝夕冷えるため",
+                    )
+                )
 
         elif "沖縄" in request.destination:
             # 沖縄特有の調整
-            items.append(ChecklistItem(
-                name="日焼け止め（SPF50+）",
-                category="生活用品",
-                auto_added=True,
-                reason="沖縄の強い日差し対策"
-            ))
-            items.append(ChecklistItem(
-                name="虫除けスプレー",
-                category="生活用品",
-                auto_added=True,
-                reason="亜熱帯気候のため"
-            ))
+            items.append(
+                ChecklistItem(
+                    name="日焼け止め（SPF50+）",
+                    category="生活用品",
+                    auto_added=True,
+                    reason="沖縄の強い日差し対策",
+                )
+            )
+            items.append(
+                ChecklistItem(
+                    name="虫除けスプレー",
+                    category="生活用品",
+                    auto_added=True,
+                    reason="亜熱帯気候のため",
+                )
+            )
 
         return items
 
@@ -255,18 +245,22 @@ class SmartTemplateEngine:
 
         if request.duration >= 4:
             # 長期滞在の調整
-            items.append(ChecklistItem(
-                name="洗濯用洗剤（小分け）",
-                category="生活用品",
-                auto_added=True,
-                reason=f"{request.duration}泊の長期滞在のため"
-            ))
-            items.append(ChecklistItem(
-                name="予備の着替え（追加分）",
-                category="服装・身だしなみ",
-                auto_added=True,
-                reason="長期滞在のため"
-            ))
+            items.append(
+                ChecklistItem(
+                    name="洗濯用洗剤（小分け）",
+                    category="生活用品",
+                    auto_added=True,
+                    reason=f"{request.duration}泊の長期滞在のため",
+                )
+            )
+            items.append(
+                ChecklistItem(
+                    name="予備の着替え（追加分）",
+                    category="服装・身だしなみ",
+                    auto_added=True,
+                    reason="長期滞在のため",
+                )
+            )
 
         if request.duration <= 1:
             # 短期滞在の調整（軽量化）
@@ -280,35 +274,39 @@ class SmartTemplateEngine:
         items = []
 
         if request.transport_method == "airplane":
-            items.extend([
-                ChecklistItem(
-                    name="機内持ち込み用透明袋（液体用）",
-                    category="移動関連",
-                    auto_added=True,
-                    reason="飛行機の液体制限対応"
-                ),
-                ChecklistItem(
-                    name="耳栓・アイマスク",
-                    category="移動関連",
-                    auto_added=True,
-                    reason="機内快適グッズ"
-                ),
-            ])
+            items.extend(
+                [
+                    ChecklistItem(
+                        name="機内持ち込み用透明袋（液体用）",
+                        category="移動関連",
+                        auto_added=True,
+                        reason="飛行機の液体制限対応",
+                    ),
+                    ChecklistItem(
+                        name="耳栓・アイマスク",
+                        category="移動関連",
+                        auto_added=True,
+                        reason="機内快適グッズ",
+                    ),
+                ]
+            )
 
         elif request.transport_method == "car":
-            items.extend([
-                ChecklistItem(
-                    name="ETCカード",
-                    category="移動関連",
-                    auto_added=True,
-                    reason="車移動のため"
-                ),
-                ChecklistItem(
-                    name="車載充電器",
-                    category="移動関連",
-                    auto_added=True,
-                    reason="車移動のため"
-                ),
-            ])
+            items.extend(
+                [
+                    ChecklistItem(
+                        name="ETCカード",
+                        category="移動関連",
+                        auto_added=True,
+                        reason="車移動のため",
+                    ),
+                    ChecklistItem(
+                        name="車載充電器",
+                        category="移動関連",
+                        auto_added=True,
+                        reason="車移動のため",
+                    ),
+                ]
+            )
 
         return items
