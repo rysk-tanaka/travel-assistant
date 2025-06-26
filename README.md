@@ -28,28 +28,51 @@
 git clone https://github.com/yourusername/travel-assistant
 cd travel-assistant
 
-# 開発環境セットアップ
-make setup
+# 依存関係のインストール
+uv sync
 
 # 環境変数の設定
 cp .env.example .env
-# .envファイルに各種TOKENを設定
+# .envファイルに以下の値を設定:
+# - DISCORD_TOKEN (Discord Developer Portalから取得)
+# - GITHUB_TOKEN (GitHubのPersonal Access Token)
+# - GITHUB_USERNAME (あなたのGitHubユーザー名)
 
 # 実行
-uv run python main.py
+python main.py
 ```
+
+### Discord Bot セットアップ
+
+1. [Discord Developer Portal](https://discord.com/developers/applications)にアクセス
+2. 新しいアプリケーションを作成
+3. Bot セクションで Bot を作成し、Token をコピー
+4. OAuth2 → URL Generator で以下の権限を選択：
+   - Bot権限: Send Messages, Use Slash Commands, Embed Links
+   - 生成されたURLでBotをサーバーに招待
 
 ## 使用方法
 
 ### Discord コマンド
 
 ```text
-/trip smart 札幌 2025-06-28 2025-06-30 business
+/trip_smart 札幌 2025-06-28 2025-06-30 出張・ビジネス 飛行機
 → 札幌2泊出張用のスマートチェックリスト生成
 
-/trip check
-→ 現在のチェックリスト進捗確認
+/trip_smart 沖縄 2025-07-15 2025-07-18 レジャー・観光
+→ 沖縄3泊レジャー用のチェックリスト生成
+
+/trip
+→ ヘルプメッセージ表示
 ```
+
+### 実装済みの機能
+
+- ✅ **基本チェックリスト生成**: テンプレートベースの項目管理
+- ✅ **地域別調整**: 北海道（防寒対策）、沖縄（日焼け・虫除け対策）
+- ✅ **期間別調整**: 長期滞在時の洗濯用品追加
+- ✅ **交通手段別調整**: 飛行機（液体制限）、車（ETC・充電器）
+- ✅ **Discord Embed表示**: 進捗率・カテゴリ別表示
 
 ## 開発
 
