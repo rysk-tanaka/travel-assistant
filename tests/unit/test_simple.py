@@ -15,11 +15,8 @@ def test_list():
     assert items[0] == 1
 
 
-class TestBasic:
-    """基本的なテストクラス."""
-
-    def test_string(self):
-        """文字列のテスト."""
-        text = "Hello"
-        assert text.lower() == "hello"
-        assert text.upper() == "HELLO"
+def test_string():
+    """文字列のテスト."""
+    text = "Hello"
+    assert text.lower() == "hello"
+    assert text.upper() == "HELLO"
