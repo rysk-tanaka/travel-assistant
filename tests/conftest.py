@@ -5,6 +5,7 @@ pytest configuration and fixtures for TravelAssistant tests.
 import asyncio
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from hypothesis import settings
@@ -32,7 +33,7 @@ def tmp_checklist_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def sample_trip_data() -> dict:
+def sample_trip_data() -> dict[str, Any]:
     """テスト用の旅行データを提供します。"""
     return {
         "destination": "札幌",
@@ -45,7 +46,7 @@ def sample_trip_data() -> dict:
 
 
 @pytest.fixture
-def sample_weather_data() -> dict:
+def sample_weather_data() -> dict[str, Any]:
     """テスト用の天気データを提供します。"""
     return {
         "average_temperature": 20.5,
