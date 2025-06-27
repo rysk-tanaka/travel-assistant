@@ -4,8 +4,10 @@ Smart template engine for checklist generation.
 条件に応じてテンプレートを自動調整し、最適なチェックリストを生成します。
 """
 
+from typing import Any
+
 from src.config.settings import settings
-from src.types import (
+from src.models import (
     ChecklistItem,
     ItemCategory,
     TemplateType,
@@ -21,10 +23,10 @@ logger = get_logger(__name__)
 class SmartTemplateEngine:
     """スマートテンプレートエンジン."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初期化."""
         self.markdown_processor = MarkdownProcessor()
-        self.template_cache = {}
+        self.template_cache: dict[str, Any] = {}
         logger.info("SmartTemplateEngine initialized")
 
     async def generate_checklist(self, request: TripRequest) -> TripChecklist:
@@ -41,10 +43,7 @@ class SmartTemplateEngine:
         context = self._prepare_context(request)
 
         # 3. テンプレートレンダリング
-        if template_type == "sapporo_business":
-            # 札幌出張専用テンプレート
-            rendered = self.markdown_processor.render_template("sapporo_business.md", context)
-        elif request.purpose == "business":
+        if request.purpose == "business":
             # ビジネス用モジュラーテンプレート
             rendered = self.markdown_processor.combine_templates(
                 "base_travel.md", "business.md", context=context
@@ -86,7 +85,7 @@ class SmartTemplateEngine:
         else:
             return "leisure_domestic"
 
-    def _prepare_context(self, request: TripRequest) -> dict:
+    def _prepare_context(self, request: TripRequest) -> dict[str, Any]:
         """テンプレート用のコンテキストを準備."""
         return {
             "destination": request.destination,
@@ -103,14 +102,14 @@ class SmartTemplateEngine:
 
     def _get_transport_display(self, transport: str | None) -> str:
         """交通手段の表示名を取得."""
-        transport_map = {
+        transport_map: dict[str, str] = {
             "airplane": "飛行機",
             "train": "新幹線・電車",
             "car": "車",
             "bus": "バス",
             "other": "その他",
         }
-        return transport_map.get(transport, "未定")
+        return transport_map.get(transport or "", "未定")
 
     def _extract_items_from_markdown(self, markdown: str) -> list[ChecklistItem]:
         """Markdownからチェックリスト項目を抽出."""
@@ -130,7 +129,7 @@ class SmartTemplateEngine:
 
     def _normalize_category(self, category_name: str) -> ItemCategory:
         """カテゴリ名を正規化."""
-        category_map = {
+        category_map: dict[str, ItemCategory] = {
             "移動関連": "移動関連",
             "仕事関連": "仕事関連",
             "ビジネス": "仕事関連",
@@ -152,7 +151,9 @@ class SmartTemplateEngine:
             if keyword in category_name:
                 return category
 
-        return "生活用品"  # デフォルト
+        # デフォルトとして生活用品を返す
+        default_category: ItemCategory = "生活用品"
+        return default_category
 
     async def _apply_adjustments(
         self, items: list[ChecklistItem], request: TripRequest

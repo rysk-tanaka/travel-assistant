@@ -6,7 +6,7 @@ Python 3.12+の新しい型構文を使用します。
 """
 
 from datetime import date, datetime
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field, field_validator
@@ -131,19 +131,19 @@ class TripRequest(BaseModel):
 
     @field_validator("end_date")
     @classmethod
-    def validate_dates(cls, v: date, values: dict) -> date:
+    def validate_dates(cls, v: date, info: Any) -> date:
         """終了日が開始日より後であることを検証."""
-        if "start_date" in values and v < values["start_date"]:
+        if "start_date" in info.data and v < info.data["start_date"]:
             raise ValueError("終了日は開始日より後である必要があります")
         return v
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def duration(self) -> int:
         """宿泊日数を計算."""
         return (self.end_date - self.start_date).days
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def trip_id(self) -> str:
         """旅行IDを生成."""
@@ -166,7 +166,7 @@ class TripChecklist(BaseModel):
     template_used: TemplateType | None = Field(default=None, description="使用したテンプレート")
     weather_data: WeatherDataDict | None = Field(default=None, description="天気予報データ")
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def items_by_category(self) -> dict[ItemCategory, list[ChecklistItem]]:
         """カテゴリ別にアイテムを整理."""
@@ -177,7 +177,7 @@ class TripChecklist(BaseModel):
             result[item.category].append(item)
         return result
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def completion_percentage(self) -> float:
         """完了率を計算."""
@@ -186,19 +186,19 @@ class TripChecklist(BaseModel):
         checked_count = sum(1 for item in self.items if item.checked)
         return (checked_count / len(self.items)) * 100
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def completed_count(self) -> int:
         """完了済みアイテム数."""
         return sum(1 for item in self.items if item.checked)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_count(self) -> int:
         """全アイテム数."""
         return len(self.items)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def pending_items(self) -> list[ChecklistItem]:
         """未完了アイテムのリスト."""
@@ -225,11 +225,12 @@ class TripChecklist(BaseModel):
 
     def to_markdown(self) -> str:
         """Markdown形式でチェックリストを出力."""
+        progress = f"{self.completion_percentage:.1f}%"
         lines = [
             f"# {self.destination}旅行チェックリスト",
             f"**期間**: {self.start_date} ～ {self.end_date}",
             f"**目的**: {self.purpose}",
-            f"**進捗**: {self.completion_percentage:.1f}% ({self.completed_count}/{self.total_count})",
+            f"**進捗**: {progress} ({self.completed_count}/{self.total_count})",
             "",
         ]
 

@@ -12,8 +12,8 @@ import frontmatter
 from jinja2 import Environment, FileSystemLoader, TemplateError
 from pydantic import BaseModel, Field
 
-from src.config import settings
-from src.types import TemplateMetadataDict, TemplateNotFoundError
+from src.config.settings import settings
+from src.models import TemplateMetadataDict, TemplateNotFoundError
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +29,7 @@ class TemplateData(BaseModel):
     def from_file(cls, file_path: Path) -> "TemplateData":
         """ファイルからテンプレートデータを読み込む."""
         try:
-            with open(file_path, encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 post = frontmatter.load(f)
 
             metadata = TemplateMetadataDict(
@@ -43,7 +43,7 @@ class TemplateData(BaseModel):
 
         except Exception as e:
             logger.error(f"Failed to load template from {file_path}: {e}")
-            raise TemplateNotFoundError(f"テンプレート読み込みエラー: {file_path}")
+            raise TemplateNotFoundError(f"テンプレート読み込みエラー: {file_path}") from e
 
 
 class MarkdownProcessor:
@@ -113,7 +113,7 @@ class MarkdownProcessor:
 
         except TemplateError as e:
             logger.error(f"Template rendering error: {e}")
-            raise TemplateNotFoundError(f"テンプレートレンダリングエラー: {e}")
+            raise TemplateNotFoundError(f"テンプレートレンダリングエラー: {e}") from e
 
     def combine_templates(
         self, base_template: str, *module_templates: str, context: dict[str, Any]
@@ -193,7 +193,9 @@ class MarkdownProcessor:
                         # チェック状態を更新
                         check_mark = "x" if updates[item_name] else " "
                         indent = len(line) - len(line.lstrip())
-                        line = " " * indent + f"- [{check_mark}] {item_name}"
+                        updated_line = " " * indent + f"- [{check_mark}] {item_name}"
+                        updated_lines.append(updated_line)
+                        continue
 
             updated_lines.append(line)
 

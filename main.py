@@ -7,10 +7,9 @@ import logging
 import os
 import sys
 
+import discord
+from discord.ext import commands
 from dotenv import load_dotenv
-
-# Add the src directory to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 # Load environment variables
 load_dotenv()
@@ -22,9 +21,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main():
-    """Main function to run the bot"""
-    # Check required environment variables
+def check_environment() -> None:
+    """Check required environment variables."""
     required_vars = ["DISCORD_TOKEN", "GITHUB_TOKEN"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
 
@@ -33,19 +31,17 @@ def main():
         logger.error("Please copy .env.example to .env and fill in the required values")
         sys.exit(1)
 
-    # Import bot after environment check
+    # Check if discord.py is available
     try:
-        import discord
-        from discord.ext import commands
-
-        logger.info("Discord.py imported successfully")
-    except ImportError:
+        version = discord.__version__
+        logger.info(f"Discord.py {version} imported successfully")
+    except AttributeError:
         logger.error("discord.py not found. Please install with: uv sync")
         sys.exit(1)
 
-    # Import our modules
 
-    # Bot configuration
+def create_bot() -> commands.Bot:
+    """Create and configure the Discord bot."""
     intents = discord.Intents.default()
     intents.message_content = True
 
@@ -54,7 +50,7 @@ def main():
     )
 
     @bot.event
-    async def on_ready():
+    async def on_ready() -> None:
         """Event triggered when the bot is ready"""
         logger.info(f"{bot.user} has connected to Discord!")
         logger.info(f"Bot is in {len(bot.guilds)} guilds")
@@ -74,7 +70,9 @@ def main():
             logger.error(f"Failed to sync commands: {e}")
 
     @bot.event
-    async def on_command_error(ctx, error):
+    async def on_command_error(
+        ctx: commands.Context[commands.Bot], error: commands.CommandError
+    ) -> None:
         """Global error handler"""
         if isinstance(error, commands.CommandNotFound):
             await ctx.send(
@@ -86,31 +84,34 @@ def main():
 
     # Simple test command
     @bot.command(name="ping")
-    async def ping(ctx):
+    async def ping(ctx: commands.Context[commands.Bot]) -> None:
         """Test command to check if bot is responsive"""
         await ctx.send(f"Pong! Latency: {round(bot.latency * 1000)}ms")
 
-    # Slash command example
-    @bot.tree.command(name="trip", description="旅行準備アシスタント")
-    async def trip(interaction: discord.Interaction):
-        """Base trip command"""
-        await interaction.response.send_message(
-            "TravelAssistant へようこそ！\\n"
-            "利用可能なサブコマンド:\\n"
-            "- `/trip smart` - スマートチェックリスト生成\\n"
-            "- `/trip check` - チェックリスト確認\\n"
-            "詳細は開発中です..."
-        )
+    return bot
 
-    # Run the bot
+
+def run_bot(bot: commands.Bot) -> None:
+    """Run the Discord bot."""
     try:
-        bot.run(os.getenv("DISCORD_TOKEN"))
+        token = os.getenv("DISCORD_TOKEN")
+        if not token:
+            logger.error("DISCORD_TOKEN not found in environment variables")
+            sys.exit(1)
+        bot.run(token)
     except discord.LoginFailure:
         logger.error("Invalid Discord token. Please check your .env file")
         sys.exit(1)
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         sys.exit(1)
+
+
+def main() -> None:
+    """Main function to run the bot"""
+    check_environment()
+    bot = create_bot()
+    run_bot(bot)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ structlogを使用した構造化ログの設定を提供します。
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -36,7 +37,7 @@ def setup_logging(
     )
 
     # structlogの設定
-    processors = [
+    processors: list[Any] = [
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.PositionalArgumentsFormatter(),

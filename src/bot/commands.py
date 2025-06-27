@@ -5,6 +5,7 @@ Discord Botのコマンドとインタラクションを定義します。
 """
 
 from datetime import datetime
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -12,7 +13,7 @@ from discord.ext import commands
 
 from src.config.settings import settings
 from src.core.smart_engine import SmartTemplateEngine
-from src.types import TransportMethod, TripPurpose, TripRequest
+from src.models import TransportMethod, TripChecklist, TripPurpose, TripRequest
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -25,11 +26,13 @@ class TripCommands(commands.Cog):
         """初期化."""
         self.bot = bot
         self.smart_engine = SmartTemplateEngine()
+        # チェックリストを一時的に保存（本来はDBやRedisを使用）
+        self.checklists: dict[str, TripChecklist] = {}
         logger.info("TripCommands cog initialized")
 
     @app_commands.command(name="trip", description="旅行準備アシスタントのメインコマンド")
     @app_commands.describe(subcommand="実行するサブコマンド (smart/check/help)")
-    async def trip(self, interaction: discord.Interaction, subcommand: str = "help"):
+    async def trip(self, interaction: discord.Interaction, subcommand: str = "help") -> None:
         """旅行準備アシスタントのメインコマンド."""
         if subcommand == "help":
             await self.show_help(interaction)
@@ -67,7 +70,7 @@ class TripCommands(commands.Cog):
         end_date: str,
         purpose: TripPurpose,
         transport: TransportMethod | None = None,
-    ):
+    ) -> None:
         """スマートチェックリストを生成."""
         await interaction.response.defer()
 
@@ -111,7 +114,7 @@ class TripCommands(commands.Cog):
             logger.error(f"Error generating checklist: {e}")
             await interaction.followup.send("❌ チェックリストの生成中にエラーが発生しました。")
 
-    async def show_help(self, interaction: discord.Interaction):
+    async def show_help(self, interaction: discord.Interaction) -> None:
         """ヘルプメッセージを表示."""
         embed = discord.Embed(
             title="🧳 TravelAssistant ヘルプ",
@@ -151,7 +154,7 @@ class TripCommands(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    def create_checklist_embed(self, checklist) -> discord.Embed:
+    def create_checklist_embed(self, checklist: TripChecklist) -> discord.Embed:
         """チェックリストのEmbedを作成."""
         embed = discord.Embed(
             title=f"🧳 {checklist.destination}旅行チェックリスト",
@@ -206,21 +209,27 @@ class ChecklistView(discord.ui.View):
     @discord.ui.button(
         label="✅ 項目をチェック", style=discord.ButtonStyle.green, custom_id="check_items"
     )
-    async def check_items(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def check_items(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
         """チェックリスト項目をチェック."""
         # TODO: モーダルでアイテム選択
         await interaction.response.send_message("チェック機能は開発中です。", ephemeral=True)
 
     @discord.ui.button(
-        label="📊 詳細表示", style=discord.ButtonStyle.blue, custom_id="show_details"
+        label="📊 詳細表示", style=discord.ButtonStyle.primary, custom_id="show_details"
     )
-    async def show_details(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def show_details(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
         """チェックリストの詳細を表示."""
         # TODO: 詳細表示実装
         await interaction.response.send_message("詳細表示機能は開発中です。", ephemeral=True)
 
     @discord.ui.button(label="💾 保存", style=discord.ButtonStyle.gray, custom_id="save_checklist")
-    async def save_checklist(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def save_checklist(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
         """チェックリストを保存."""
         if not settings.is_feature_enabled("github"):
             await interaction.response.send_message(
@@ -232,6 +241,6 @@ class ChecklistView(discord.ui.View):
         await interaction.response.send_message("保存機能は開発中です。", ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """Cogをセットアップ."""
     await bot.add_cog(TripCommands(bot))

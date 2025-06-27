@@ -21,34 +21,36 @@ class Settings(BaseSettings):
     )
 
     # Discord設定
-    DISCORD_TOKEN: str = Field(..., description="Discord Bot Token")
-    DEV_GUILD_ID: str | None = Field(None, description="開発用サーバーID")
+    DISCORD_TOKEN: str = Field(default="", description="Discord Bot Token")
+    DEV_GUILD_ID: str | None = Field(default=None, description="開発用サーバーID")
 
     # GitHub設定
-    GITHUB_TOKEN: str = Field(..., description="GitHub Personal Access Token")
-    GITHUB_REPO_NAME: str = Field("travel-assistant-data", description="データ保存用リポジトリ名")
-    GITHUB_USERNAME: str = Field(..., description="GitHubユーザー名")
-    GITHUB_BRANCH: str = Field("main", description="使用するブランチ")
+    GITHUB_TOKEN: str = Field(default="", description="GitHub Personal Access Token")
+    GITHUB_REPO_NAME: str = Field(
+        default="travel-assistant-data", description="データ保存用リポジトリ名"
+    )
+    GITHUB_USERNAME: str = Field(default="", description="GitHubユーザー名")
+    GITHUB_BRANCH: str = Field(default="main", description="使用するブランチ")
 
     # API設定
-    WEATHER_API_KEY: str | None = Field(None, description="OpenWeatherMap API Key")
-    CLAUDE_API_KEY: str | None = Field(None, description="Claude API Key")
+    WEATHER_API_KEY: str | None = Field(default=None, description="OpenWeatherMap API Key")
+    CLAUDE_API_KEY: str | None = Field(default=None, description="Claude API Key")
 
     # アプリケーション設定
-    DEBUG: bool = Field(False, description="デバッグモード")
+    DEBUG: bool = Field(default=False, description="デバッグモード")
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
-        "INFO", description="ログレベル"
+        default="INFO", description="ログレベル"
     )
 
     # データ保存設定
-    USER_DATA_PATH: str = Field("./data/user_data", description="ユーザーデータ保存パス")
-    TEMPLATE_PATH: str = Field("./src/templates", description="テンプレート保存パス")
+    USER_DATA_PATH: str = Field(default="./data/user_data", description="ユーザーデータ保存パス")
+    TEMPLATE_PATH: str = Field(default="./src/templates", description="テンプレート保存パス")
 
     # 機能フラグ
-    ENABLE_WEATHER_API: bool = Field(False, description="天気API機能の有効化")
-    ENABLE_CLAUDE_API: bool = Field(False, description="Claude API機能の有効化")
-    ENABLE_GITHUB_SYNC: bool = Field(False, description="GitHub同期機能の有効化")
-    ENABLE_DEBUG_COMMANDS: bool = Field(True, description="デバッグコマンドの有効化")
+    ENABLE_WEATHER_API: bool = Field(default=False, description="天気API機能の有効化")
+    ENABLE_CLAUDE_API: bool = Field(default=False, description="Claude API機能の有効化")
+    ENABLE_GITHUB_SYNC: bool = Field(default=False, description="GitHub同期機能の有効化")
+    ENABLE_DEBUG_COMMANDS: bool = Field(default=True, description="デバッグコマンドの有効化")
 
     @property
     def user_data_dir(self) -> Path:
