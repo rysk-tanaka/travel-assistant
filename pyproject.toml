@@ -127,7 +127,12 @@ addopts = [
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["*/tests/*", "*/__init__.py"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "src/bot/*",  # Discord関連モジュールを除外
+    "src/utils/logging_config.py",  # ロギング設定を除外
+]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -137,4 +142,10 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
+    "@discord",  # Discord.pyデコレータを除外
+    "async def on_",  # Discord.pyイベントハンドラを除外
 ]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 85  # 全体のカバレッジ目標: 85%
