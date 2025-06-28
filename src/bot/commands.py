@@ -14,8 +14,9 @@ from discord.ext import commands
 from src.bot.checklist_check import ChecklistCheckView
 from src.bot.checklist_detail import ChecklistDetailView, create_detailed_checklist_text
 from src.config.settings import settings
+from src.core.github_sync import GitHubSync
 from src.core.smart_engine import SmartTemplateEngine
-from src.models import TransportMethod, TripChecklist, TripPurpose, TripRequest
+from src.models import GitHubSyncError, TransportMethod, TripChecklist, TripPurpose, TripRequest
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -30,6 +31,16 @@ class TripCommands(commands.Cog):
         self.smart_engine = SmartTemplateEngine()
         # チェックリストを一時的に保存（本来はDBやRedisを使用）
         self.checklists: dict[str, TripChecklist] = {}
+
+        # GitHub同期機能の初期化
+        self.github_sync: GitHubSync | None = None
+        if settings.is_feature_enabled("github"):
+            try:
+                self.github_sync = GitHubSync()
+                logger.info("GitHub sync initialized")
+            except GitHubSyncError as e:
+                logger.error(f"Failed to initialize GitHub sync: {e}")
+
         logger.info("TripCommands cog initialized")
 
     @app_commands.command(name="trip", description="旅行準備アシスタントのメインコマンド")
@@ -119,6 +130,73 @@ class TripCommands(commands.Cog):
             logger.error(f"Error generating checklist: {e}")
             await interaction.followup.send("❌ チェックリストの生成中にエラーが発生しました。")
 
+    @app_commands.command(name="trip_history", description="過去の旅行履歴を表示します")
+    @app_commands.describe(limit="表示する件数（デフォルト: 10件）")
+    async def trip_history(self, interaction: discord.Interaction, limit: int = 10) -> None:
+        """過去の旅行履歴を表示."""
+        if not settings.is_feature_enabled("github"):
+            await interaction.response.send_message(
+                "GitHub同期機能は無効になっています。", ephemeral=True
+            )
+            return
+
+        if not self.github_sync:
+            await interaction.response.send_message(
+                "GitHub同期機能が初期化されていません。", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer()
+
+        try:
+            # ユーザーの旅行履歴を取得
+            user_id = str(interaction.user.id)
+            trips = self.github_sync.get_user_trips(user_id, limit=limit)
+
+            if not trips:
+                embed = discord.Embed(
+                    title="📜 旅行履歴",
+                    description="まだ保存された旅行はありません。",
+                    color=discord.Color.blue(),
+                )
+                await interaction.followup.send(embed=embed)
+                return
+
+            # 履歴のEmbedを作成
+            embed = discord.Embed(
+                title="📜 旅行履歴",
+                description=f"過去の旅行記録（最新{len(trips)}件）",
+                color=discord.Color.blue(),
+            )
+
+            for trip in trips[:10]:  # 最大10件まで表示
+                # ファイル名から情報を抽出
+                filename = trip["filename"]
+                status_emoji = {"planning": "📝", "ongoing": "✈️", "completed": "✅"}.get(
+                    trip.get("status", "planning"), "📋"
+                )
+
+                completion = trip.get("completion_percentage", 0)
+
+                embed.add_field(
+                    name=f"{status_emoji} {filename}",
+                    value=(
+                        f"**進捗**: {completion:.1f}%\n"
+                        f"**更新**: {trip.get('updated_at', '不明')[:10]}\n"
+                        f"[GitHubで表示]({trip['github_url']})"
+                    ),
+                    inline=True,
+                )
+
+            embed.set_footer(text=f"合計 {len(trips)} 件の旅行記録")
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            logger.error(f"Error fetching trip history: {e}")
+            await interaction.followup.send(
+                "❌ 旅行履歴の取得中にエラーが発生しました。", ephemeral=True
+            )
+
     async def show_help(self, interaction: discord.Interaction) -> None:
         """ヘルプメッセージを表示."""
         embed = discord.Embed(
@@ -131,8 +209,8 @@ class TripCommands(commands.Cog):
             name="📋 利用可能なコマンド",
             value=(
                 "`/trip_smart` - スマートチェックリスト生成\n"
-                "`/trip_check` - チェックリスト確認（開発中）\n"
-                "`/trip_history` - 過去の旅行履歴（開発中）"
+                "`/trip_history` - 過去の旅行履歴\n"
+                "`/trip_check` - チェックリスト確認（開発中）"
             ),
             inline=False,
         )
@@ -269,8 +347,59 @@ class ChecklistView(discord.ui.View):
             )
             return
 
-        # TODO: GitHub保存実装
-        await interaction.response.send_message("保存機能は開発中です。", ephemeral=True)
+        if not self.cog.github_sync:
+            await interaction.response.send_message(
+                "GitHub同期機能が初期化されていません。", ephemeral=True
+            )
+            return
+
+        # チェックリストを取得
+        checklist = self.cog.checklists.get(self.checklist_id)
+        if not checklist:
+            await interaction.response.send_message(
+                "チェックリストが見つかりませんでした。", ephemeral=True
+            )
+            return
+
+        # 処理中のメッセージを表示
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # GitHub に保存
+            github_url = self.cog.github_sync.save_checklist(checklist)
+
+            # 成功メッセージ
+            embed = discord.Embed(
+                title="✅ チェックリストを保存しました",
+                description="GitHubリポジトリに正常に保存されました。",
+                color=discord.Color.green(),
+            )
+
+            if github_url:
+                embed.add_field(
+                    name="📍 保存場所", value=f"[GitHubで表示]({github_url})", inline=False
+                )
+
+            embed.add_field(
+                name="📊 保存内容",
+                value=(
+                    f"• **目的地**: {checklist.destination}\n"
+                    f"• **期間**: {checklist.start_date} ～ {checklist.end_date}\n"
+                    f"• **進捗**: {checklist.completion_percentage:.1f}%"
+                ),
+                inline=False,
+            )
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except GitHubSyncError as e:
+            logger.error(f"Failed to save checklist to GitHub: {e}")
+            await interaction.followup.send(
+                f"❌ GitHub保存中にエラーが発生しました: {e}", ephemeral=True
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error saving checklist: {e}")
+            await interaction.followup.send("❌ 予期しないエラーが発生しました。", ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:
