@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from src.bot.checklist_detail import ChecklistDetailView, create_detailed_checklist_text
 from src.config.settings import settings
 from src.core.smart_engine import SmartTemplateEngine
 from src.models import TransportMethod, TripChecklist, TripPurpose, TripRequest
@@ -97,6 +98,9 @@ class TripCommands(commands.Cog):
 
             # チェックリスト生成
             checklist = await self.smart_engine.generate_checklist(request)
+
+            # チェックリストを一時保存
+            self.checklists[checklist.id] = checklist
 
             # Embed作成
             embed = self.create_checklist_embed(checklist)
@@ -223,8 +227,23 @@ class ChecklistView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         """チェックリストの詳細を表示."""
-        # TODO: 詳細表示実装
-        await interaction.response.send_message("詳細表示機能は開発中です。", ephemeral=True)
+        # チェックリストを取得
+        checklist = self.cog.checklists.get(self.checklist_id)
+
+        if not checklist:
+            await interaction.response.send_message(
+                "チェックリストが見つかりませんでした。", ephemeral=True
+            )
+            return
+
+        # 詳細テキストを作成
+        detailed_text = create_detailed_checklist_text(checklist)
+
+        # 詳細表示ビューを作成
+        detail_view = ChecklistDetailView(detailed_text)
+        embed = detail_view.get_embed()
+
+        await interaction.response.send_message(embed=embed, view=detail_view, ephemeral=True)
 
     @discord.ui.button(label="💾 保存", style=discord.ButtonStyle.gray, custom_id="save_checklist")
     async def save_checklist(
