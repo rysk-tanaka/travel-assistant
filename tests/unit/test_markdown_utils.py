@@ -75,9 +75,9 @@ def test_from_file_invalid_format(tmp_path: Path):
     test_file = tmp_path / "invalid.md"
     test_file.write_text("# 通常のMarkdown", encoding="utf-8")
 
-    # エラーにはならず、メタデータが空で読み込まれる
+    # エラーにはならず、メタデータがデフォルト値で読み込まれる
     template_data = TemplateData.from_file(test_file)
-    assert template_data.metadata["template_type"] == "unknown"
+    assert template_data.metadata["template_type"] == "domestic_business"  # デフォルト値
     assert template_data.metadata["template_version"] == "1.0"
 
 
@@ -117,7 +117,7 @@ def test_load_template_success(processor: MarkdownProcessor, create_test_templat
     create_test_template(
         "test.md",
         """---
-template_type: test
+template_type: domestic_business
 template_version: 1.0
 ---
 # テスト内容
@@ -125,7 +125,7 @@ template_version: 1.0
     )
 
     template_data = processor.load_template("test.md")
-    assert template_data.metadata["template_type"] == "test"
+    assert template_data.metadata["template_type"] == "domestic_business"
     assert "# テスト内容" in template_data.content
 
 

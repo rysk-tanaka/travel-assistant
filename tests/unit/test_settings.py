@@ -36,8 +36,8 @@ def test_default_values(monkeypatch):
     for var in env_vars:
         monkeypatch.delenv(var, raising=False)
 
-    # デフォルト設定の確認
-    settings = Settings()
+    # .env ファイルを無効化して設定を作成
+    settings = Settings(_env_file=None)
 
     # 必須トークン（デフォルトは空）
     assert settings.DISCORD_TOKEN == ""
@@ -77,7 +77,8 @@ def test_env_var_override(monkeypatch):
     monkeypatch.setenv("ENABLE_GITHUB_SYNC", "yes")
     monkeypatch.setenv("GITHUB_USERNAME", "testuser")
 
-    settings = Settings()
+    # .env ファイルを無効化して設定を作成
+    settings = Settings(_env_file=None)
 
     assert settings.DISCORD_TOKEN == "test-discord-token"
     assert settings.GITHUB_TOKEN == "test-github-token"
@@ -95,14 +96,14 @@ def test_boolean_conversion(monkeypatch):
     true_values = ["true", "True", "TRUE", "1", "yes", "Yes", "YES", "on", "On", "ON"]
     for value in true_values:
         monkeypatch.setenv("ENABLE_WEATHER_API", value)
-        settings = Settings()
+        settings = Settings(_env_file=None)
         assert settings.ENABLE_WEATHER_API is True, f"Failed for value: {value}"
 
     # False になるケース
     false_values = ["false", "False", "FALSE", "0", "no", "No", "NO", "off", "Off", "OFF", ""]
     for value in false_values:
         monkeypatch.setenv("ENABLE_WEATHER_API", value)
-        settings = Settings()
+        settings = Settings(_env_file=None)
         assert settings.ENABLE_WEATHER_API is False, f"Failed for value: {value}"
 
 
@@ -111,7 +112,7 @@ def test_is_feature_enabled(monkeypatch):
     monkeypatch.setenv("ENABLE_WEATHER_API", "true")
     monkeypatch.setenv("ENABLE_CLAUDE_API", "false")
 
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     assert settings.is_feature_enabled("weather") is True
     assert settings.is_feature_enabled("claude") is False
@@ -127,7 +128,7 @@ def test_user_data_dir_property(monkeypatch, tmp_path):
     test_path = str(tmp_path / "test_user_data")
     monkeypatch.setenv("USER_DATA_PATH", test_path)
 
-    settings = Settings()
+    settings = Settings(_env_file=None)
     data_dir = settings.user_data_dir
 
     # パスがPathオブジェクトとして返される
@@ -140,11 +141,11 @@ def test_user_data_dir_property(monkeypatch, tmp_path):
 
 def test_template_dir_property():
     """template_dirプロパティのテスト."""
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     template_dir = settings.template_dir
     assert isinstance(template_dir, Path)
-    assert str(template_dir) == "./src/templates"
+    assert str(template_dir) == "src/templates"
 
 
 def test_github_repo_url_property(monkeypatch):
@@ -152,7 +153,7 @@ def test_github_repo_url_property(monkeypatch):
     monkeypatch.setenv("GITHUB_USERNAME", "testuser")
     monkeypatch.setenv("GITHUB_REPO_NAME", "my-travel-data")
 
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     assert settings.github_repo_url == "https://github.com/testuser/my-travel-data"
 
@@ -163,14 +164,18 @@ def test_case_sensitive_config(monkeypatch):
     monkeypatch.setenv("discord_token", "test-token")
     monkeypatch.setenv("DISCORD_TOKEN", "test-token-upper")
 
-    settings = Settings()
+    settings = Settings(_env_file=None)
     # pydantic_settingsではcase_sensitive=Falseなので、
     # 最後に設定された値が使用される
     assert settings.DISCORD_TOKEN in ["test-token", "test-token-upper"]
 
 
-def test_env_file_loading(tmp_path):
+def test_env_file_loading(tmp_path, monkeypatch):
     """環境ファイルの読み込みテスト."""
+    # 環境変数をクリア
+    monkeypatch.delenv("DISCORD_TOKEN", raising=False)
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
+
     env_file = tmp_path / ".env"
     env_file.write_text("DISCORD_TOKEN=from-env-file\nLOG_LEVEL=ERROR\n")
 
