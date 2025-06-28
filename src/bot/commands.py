@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from src.bot.checklist_check import ChecklistCheckView
 from src.bot.checklist_detail import ChecklistDetailView, create_detailed_checklist_text
 from src.config.settings import settings
 from src.core.smart_engine import SmartTemplateEngine
@@ -217,8 +218,20 @@ class ChecklistView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         """チェックリスト項目をチェック."""
-        # TODO: モーダルでアイテム選択
-        await interaction.response.send_message("チェック機能は開発中です。", ephemeral=True)
+        # チェックリストを取得
+        checklist = self.cog.checklists.get(self.checklist_id)
+
+        if not checklist:
+            await interaction.response.send_message(
+                "チェックリストが見つかりませんでした。", ephemeral=True
+            )
+            return
+
+        # チェック機能ビューを作成
+        check_view = ChecklistCheckView(checklist, self.cog)
+        embed = check_view.get_embed()
+
+        await interaction.response.send_message(embed=embed, view=check_view, ephemeral=True)
 
     @discord.ui.button(
         label="📊 詳細表示", style=discord.ButtonStyle.primary, custom_id="show_details"
