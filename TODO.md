@@ -2,7 +2,7 @@
 
 ## 🚀 Phase 1: MVP構築（基本機能）
 
-### 🔥 High Priority（今すぐ実装）
+### 🔥 High Priority（今すぐ実装） ✅ 完了
 
 - [x] **環境設定準備**
   - [x] `.env.example` ファイル作成
@@ -18,12 +18,16 @@
 - [x] **基本テンプレートファイル作成**
   - [x] `src/templates/domestic_business.md` - 国内出張用
   - [x] `src/templates/leisure_domestic.md` - レジャー旅行用
+  - [x] `src/templates/base_travel.md` - ベーステンプレート
+  - [x] `src/templates/business_long_distance.md` - 長距離出張用
+  - [x] `src/templates/business_short_distance.md` - 短距離出張用
   - [x] テンプレートのYAML Front Matter設計
+  - [x] モジュール化されたテンプレート（modules/）
 
 ### ⚡ Medium Priority（基本機能実装）
 
 - [x] **データモデル実装**
-  - [x] `src/types.py` にPydanticモデル作成
+  - [x] `src/models.py` にPydanticモデル作成
     - [x] `TripRequest` - 旅行リクエスト
     - [x] `ChecklistItem` - チェックリスト項目
     - [x] `TripChecklist` - チェックリスト全体
@@ -34,6 +38,7 @@
   - [x] 基本的な引数検証
   - [x] シンプルなチェックリスト生成
   - [x] Discord Embed での結果表示
+  - [x] スマートエンジン（`src/core/smart_engine.py`）実装
 
 - [x] **テンプレート処理機能**
   - [x] `src/utils/markdown_utils.py` 作成
@@ -41,31 +46,33 @@
   - [x] Front Matter解析機能
   - [x] テンプレート変数置換機能
 
-- [ ] **GitHub連携基礎**
+- [ ] **GitHub連携基礎** 🔴 未実装
   - [ ] `src/core/github_sync.py` 作成
   - [ ] GitHub API認証
   - [ ] ファイル作成・更新機能
   - [ ] リポジトリ操作の基本機能
 
-- [ ] **Discord UI改善**
-  - [ ] インタラクティブボタン実装
-  - [ ] チェックリスト項目の選択・更新UI
-  - [ ] 進捗表示機能
-  - [ ] エラーメッセージの改善
+- [x] **Discord UI改善** ✅ 実装済み
+  - [x] インタラクティブボタン実装
+  - [x] チェックリスト項目の選択・更新UI（`checklist_check.py`）
+  - [x] チェックリスト詳細表示機能（`checklist_detail.py`）
+  - [x] 進捗表示機能
+  - [x] エラーメッセージの改善
 
 ### 🔧 Low Priority（品質向上）
 
-- [ ] **エラーハンドリング・ログ**
-  - [ ] structlog設定
+- [x] **エラーハンドリング・ログ** ✅ 実装済み
+  - [x] structlog設定（`src/utils/logging_config.py`）
   - [ ] カスタム例外クラス作成
-  - [ ] 適切なエラーメッセージ表示
-  - [ ] デバッグ用ログ出力
+  - [x] 適切なエラーメッセージ表示
+  - [x] デバッグ用ログ出力
 
-- [ ] **テスト実装**
-  - [ ] 基本機能の単体テスト
-  - [ ] Pydanticモデルのテスト
-  - [ ] Discord コマンドのモックテスト
-  - [ ] GitHub API連携のテスト
+- [x] **テスト実装** ✅ 実装済み
+  - [x] 基本機能の単体テスト
+  - [x] Pydanticモデルのテスト（`test_models.py`）
+  - [x] スマートエンジンのテスト（`test_smart_engine.py`）
+  - [x] Markdownユーティリティのテスト（`test_markdown_utils.py`）
+  - [x] 設定のテスト（`test_settings.py`）
 
 ## 🌟 Phase 2: スマート機能拡張
 
@@ -134,21 +141,39 @@
   - [ ] メモリ使用量の最適化
   - [ ] API呼び出し回数の最小化
 
-## 📅 今週の目標
+## 📅 現在の目標
 
-### 🎯 Week 1 Target（今週完了予定）
+### 🎯 Phase 1完了とPhase 2準備（今週）
 
-1. **環境設定完了** - Discord Bot Token取得・設定
-2. **基本テンプレート作成** - 3つのテンプレートファイル
-3. **データモデル実装** - Pydanticモデルの基本形
-4. **最初のコマンド実装** - `/trip smart`の基本動作
+#### ✅ Phase 1 達成事項
+1. **環境設定完了** ✅ Discord Bot Token取得・設定済み
+2. **テンプレート作成** ✅ 5つのテンプレート＋モジュール化実装
+3. **データモデル実装** ✅ Pydanticモデル完成
+4. **コマンド実装** ✅ `/trip smart`動作中・UI実装済み
+5. **テスト実装** ✅ 主要機能のテスト作成済み
 
-### ✅ 完了判定基準
+#### 🔴 Phase 1 残タスク
+1. **GitHub連携実装** - チェックリストの永続化
+   - [ ] PyGitHub導入
+   - [ ] `github_sync.py` 実装
+   - [ ] チェックリスト保存・読み込み機能
 
-- [ ] Discord Botが起動し、基本コマンドに応答する
-- [ ] テンプレートから基本的なチェックリストが生成される
-- [ ] Discord Embedで結果が表示される
-- [ ] エラーが発生せずに動作する
+#### 🌟 Phase 2 準備
+1. **天気予報API調査**
+   - [ ] OpenWeatherMap API キー取得
+   - [ ] API仕様確認・実装計画
+2. **地域特性データ設計**
+   - [ ] 地域別ルールのデータ構造設計
+   - [ ] YAMLまたはJSONでの管理方法検討
+
+### ✅ 完了判定基準（Phase 1）
+
+- [x] Discord Botが起動し、基本コマンドに応答する
+- [x] テンプレートから基本的なチェックリストが生成される
+- [x] Discord Embedで結果が表示される
+- [x] インタラクティブなUI（ボタン・セレクト）が動作する
+- [x] エラーが発生せずに動作する
+- [ ] GitHubにチェックリストが保存される
 
 ---
 
@@ -168,5 +193,5 @@
 
 ---
 
-*最終更新: 2025-06-27*
-*次回レビュー予定: Phase 1完了時*
+*最終更新: 2025-06-28*
+*次回レビュー予定: GitHub連携完了時*
