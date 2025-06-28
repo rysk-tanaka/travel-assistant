@@ -5,9 +5,9 @@ Application settings and configuration.
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,6 +51,26 @@ class Settings(BaseSettings):
     ENABLE_CLAUDE_API: bool = Field(default=False, description="Claude API機能の有効化")
     ENABLE_GITHUB_SYNC: bool = Field(default=False, description="GitHub同期機能の有効化")
     ENABLE_DEBUG_COMMANDS: bool = Field(default=True, description="デバッグコマンドの有効化")
+
+    @field_validator(
+        "ENABLE_WEATHER_API",
+        "ENABLE_CLAUDE_API",
+        "ENABLE_GITHUB_SYNC",
+        "ENABLE_DEBUG_COMMANDS",
+        "DEBUG",
+        mode="before",
+    )
+    @classmethod
+    def parse_bool(cls, v: Any) -> bool:
+        """ブール値のパースをカスタマイズ."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            if v.lower() in ("", "0", "false", "f", "no", "n", "off"):
+                return False
+            if v.lower() in ("1", "true", "t", "yes", "y", "on"):
+                return True
+        return bool(v)
 
     @property
     def user_data_dir(self) -> Path:

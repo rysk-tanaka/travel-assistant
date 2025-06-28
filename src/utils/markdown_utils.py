@@ -32,10 +32,20 @@ class TemplateData(BaseModel):
             with file_path.open(encoding="utf-8") as f:
                 post = frontmatter.load(f)
 
+            # template_typeのデフォルト値を有効な値に変更
+            template_type = post.metadata.get("template_type", "domestic_business")
+            # 有効な値でない場合はデフォルトに設定
+            if template_type not in ["domestic_business", "sapporo_business", "leisure_domestic"]:
+                template_type = "domestic_business"
+
+            # template_versionとlast_updatedを文字列に変換
+            template_version = str(post.metadata.get("template_version", "1.0"))
+            last_updated = str(post.metadata.get("last_updated", ""))
+
             metadata = TemplateMetadataDict(
-                template_type=post.metadata.get("template_type", "unknown"),
-                template_version=post.metadata.get("template_version", "1.0"),
-                last_updated=post.metadata.get("last_updated", ""),
+                template_type=template_type,
+                template_version=template_version,
+                last_updated=last_updated,
                 customizable_fields=post.metadata.get("customizable_fields", []),
             )
 
