@@ -70,7 +70,13 @@ class GitHubSync:
 
             # ファイルの作成または更新
             try:
-                file = self.repo.get_contents(file_path, ref=settings.GITHUB_BRANCH)
+                file_or_files = self.repo.get_contents(file_path, ref=settings.GITHUB_BRANCH)
+                # get_contents()はファイルの場合ContentFile、ディレクトリの場合list[ContentFile]を返す
+                if isinstance(file_or_files, list):
+                    # ディレクトリの場合はエラー
+                    raise GitHubSyncError(f"Path {file_path} is a directory, not a file")
+
+                file = file_or_files  # 型を絞り込み
                 self.repo.update_file(
                     path=file_path,
                     message=f"Update checklist for {checklist.destination}",
@@ -121,7 +127,11 @@ class GitHubSync:
         content = json.dumps(metadata, ensure_ascii=False, indent=2)
 
         try:
-            file = self.repo.get_contents(metadata_path, ref=settings.GITHUB_BRANCH)
+            file_or_files = self.repo.get_contents(metadata_path, ref=settings.GITHUB_BRANCH)
+            if isinstance(file_or_files, list):
+                raise GitHubSyncError(f"Path {metadata_path} is a directory, not a file")
+
+            file = file_or_files  # 型を絞り込み
             self.repo.update_file(
                 path=metadata_path,
                 message=f"Update metadata for {checklist.destination}",
@@ -172,14 +182,25 @@ class GitHubSync:
 
         try:
             # tripsディレクトリを再帰的に検索
-            contents = self.repo.get_contents("trips", ref=settings.GITHUB_BRANCH)
+            contents_or_file = self.repo.get_contents("trips", ref=settings.GITHUB_BRANCH)
+
+            # 最初のget_contentsの結果を処理
+            if isinstance(contents_or_file, list):
+                contents = contents_or_file
+            else:
+                # ファイルの場合（通常はあり得ないが、念のため）
+                contents = [contents_or_file]
 
             while contents:
                 file_content = contents.pop(0)
                 if file_content.type == "dir":
-                    contents.extend(
-                        self.repo.get_contents(file_content.path, ref=settings.GITHUB_BRANCH)
+                    sub_contents = self.repo.get_contents(
+                        file_content.path, ref=settings.GITHUB_BRANCH
                     )
+                    if isinstance(sub_contents, list):
+                        contents.extend(sub_contents)
+                    else:
+                        contents.append(sub_contents)
                 elif file_content.name.endswith("_metadata.json"):
                     metadata_files.append(file_content)
 
@@ -193,7 +214,13 @@ class GitHubSync:
     ) -> TripChecklist | None:
         """Markdownファイルとメタデータからチェックリストを復元."""
         try:
-            markdown_file = self.repo.get_contents(markdown_path, ref=settings.GITHUB_BRANCH)
+            file_or_files = self.repo.get_contents(markdown_path, ref=settings.GITHUB_BRANCH)
+            if isinstance(file_or_files, list):
+                # ディレクトリの場合はエラー
+                logger.error(f"Path {markdown_path} is a directory, not a file")
+                return None
+
+            markdown_file = file_or_files  # 型を絞り込み
             markdown_content = markdown_file.decoded_content.decode("utf-8")
 
             # Markdownからチェックリストを復元
@@ -281,15 +308,19 @@ class GitHubSync:
                     # Markdownファイルを削除
                     markdown_path = metadata_file.path.replace("_metadata.json", ".md")
                     try:
-                        markdown_file = self.repo.get_contents(
+                        file_or_files = self.repo.get_contents(
                             markdown_path, ref=settings.GITHUB_BRANCH
                         )
-                        self.repo.delete_file(
-                            path=markdown_path,
-                            message=f"Delete checklist {checklist_id}",
-                            sha=markdown_file.sha,
-                            branch=settings.GITHUB_BRANCH,
-                        )
+                        if isinstance(file_or_files, list):
+                            logger.warning(f"Path {markdown_path} is a directory, not a file")
+                        else:
+                            markdown_file = file_or_files  # 型を絞り込み
+                            self.repo.delete_file(
+                                path=markdown_path,
+                                message=f"Delete checklist {checklist_id}",
+                                sha=markdown_file.sha,
+                                branch=settings.GITHUB_BRANCH,
+                            )
                     except GithubException:
                         logger.warning(f"Markdown file not found: {markdown_path}")
 
