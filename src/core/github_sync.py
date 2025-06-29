@@ -232,7 +232,10 @@ class GitHubSync:
                                 "created_at": metadata.get("created_at"),
                                 "updated_at": metadata.get("updated_at"),
                                 "completion_percentage": metadata.get("completion_percentage", 0),
-                                "github_url": f"{settings.github_repo_url}/blob/{settings.GITHUB_BRANCH}/{metadata_file.path.replace('_metadata.json', '.md')}",
+                                "github_url": (
+                                    f"{settings.github_repo_url}/blob/{settings.GITHUB_BRANCH}/"
+                                    f"{metadata_file.path.replace('_metadata.json', '.md')}"
+                                ),
                             }
                             trips.append(trip_info)
 
