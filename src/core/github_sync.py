@@ -71,7 +71,8 @@ class GitHubSync:
             # ファイルの作成または更新
             try:
                 file_or_files = self.repo.get_contents(file_path, ref=settings.GITHUB_BRANCH)
-                # get_contents()はファイルの場合ContentFile、ディレクトリの場合list[ContentFile]を返す
+                # get_contents()はファイルの場合ContentFile、
+                # ディレクトリの場合list[ContentFile]を返す
                 if isinstance(file_or_files, list):
                     # ディレクトリの場合はエラー
                     raise GitHubSyncError(f"Path {file_path} is a directory, not a file")
