@@ -111,6 +111,7 @@ def test_is_feature_enabled(monkeypatch):
     """フィーチャーフラグ確認メソッドのテスト."""
     monkeypatch.setenv("ENABLE_WEATHER_API", "true")
     monkeypatch.setenv("ENABLE_CLAUDE_API", "false")
+    monkeypatch.setenv("ENABLE_GITHUB_SYNC", "false")  # 明示的に設定
 
     settings = Settings(_env_file=None)
 
