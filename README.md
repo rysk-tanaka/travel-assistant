@@ -37,6 +37,7 @@ cp .env.example .env
 # - DISCORD_TOKEN (Discord Developer Portalから取得)
 # - GITHUB_TOKEN (GitHubのPersonal Access Token)
 # - GITHUB_USERNAME (あなたのGitHubユーザー名)
+# - GITHUB_REPO_NAME (チェックリストを保存するリポジトリ名)
 
 # 実行
 python main.py
@@ -73,6 +74,8 @@ python main.py
 - ✅ **期間別調整**: 長期滞在時の洗濯用品追加
 - ✅ **交通手段別調整**: 飛行機（液体制限）、車（ETC・充電器）
 - ✅ **Discord Embed表示**: 進捗率・カテゴリ別表示
+- ✅ **GitHub連携**: チェックリストの永続化・管理
+- ✅ **インタラクティブUI**: ボタン・選択メニューでの操作
 
 ## 開発
 
@@ -100,12 +103,12 @@ travel-assistant/
 
 ## ロードマップ
 
-### v1.0 (基本機能)
+### v1.0 (基本機能) ✅ 完了
 
-- [ ] 基本テンプレート作成
-- [ ] Discord Bot基本コマンド
-- [ ] GitHub連携
-- [ ] 基本チェックリスト管理
+- [x] 基本テンプレート作成
+- [x] Discord Bot基本コマンド
+- [x] GitHub連携
+- [x] 基本チェックリスト管理
 
 ### v2.0 (スマート機能)
 
