@@ -49,9 +49,9 @@ packages = ["src"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+exclude = [".venv"]
 
 [tool.ruff.lint]
-exclude = [".venv"]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -76,7 +76,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**" = ["S101", "PLR2004"]
-"src/bot/commands.py" = ["PLR0913"] # Discord commands can have many parameters
+"src/bot/commands.py" = ["PLR0913"]
 
 [tool.black]
 line-length = 100
