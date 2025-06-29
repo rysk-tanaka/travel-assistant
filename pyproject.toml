@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "AI-powered travel preparation assistant with Discord integration"
 readme = "README.md"
 requires-python = ">=3.12"
-authors = [
-    {name = "rysk"},
-]
+authors = [{ name = "rysk" }]
 keywords = ["discord", "bot", "travel", "assistant", "ai"]
 
 dependencies = [
@@ -25,7 +23,7 @@ dependencies = [
     "structlog>=24.1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -78,7 +76,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**" = ["S101", "PLR2004"]
-"src/bot/commands.py" = ["PLR0913"]  # Discord commands can have many parameters
+"src/bot/commands.py" = ["PLR0913"] # Discord commands can have many parameters
 
 [tool.black]
 line-length = 100
@@ -105,12 +103,7 @@ exclude = ["tests/"]
 # Per-module options
 
 [[tool.mypy.overrides]]
-module = [
-    "discord.*",
-    "anthropic.*",
-    "github.*",
-    "frontmatter.*",
-]
+module = ["discord.*", "anthropic.*", "github.*", "frontmatter.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -130,8 +123,8 @@ source = ["src"]
 omit = [
     "*/tests/*",
     "*/__init__.py",
-    "src/bot/*",  # Discord関連モジュールを除外
-    "src/utils/logging_config.py",  # ロギング設定を除外
+    "src/bot/*",                   # Discord関連モジュールを除外
+    "src/utils/logging_config.py", # ロギング設定を除外
 ]
 
 [tool.coverage.report]
@@ -142,10 +135,10 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
-    "@discord",  # Discord.pyデコレータを除外
-    "async def on_",  # Discord.pyイベントハンドラを除外
+    "@discord",                   # Discord.pyデコレータを除外
+    "async def on_",              # Discord.pyイベントハンドラを除外
 ]
 precision = 2
 show_missing = true
 skip_covered = false
-fail_under = 85  # 全体のカバレッジ目標: 85%
+fail_under = 85 # 全体のカバレッジ目標: 85%
