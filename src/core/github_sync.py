@@ -6,15 +6,19 @@ GitHub integration for storing and retrieving checklist data.
 """
 
 import json
+from datetime import datetime as dt
+from datetime import timedelta
 from typing import Any
+from uuid import uuid4
 
 from github import Github, GithubException
 from github.ContentFile import ContentFile
 from github.Repository import Repository
 
 from src.config.settings import settings
-from src.models import GitHubSyncError, TripChecklist
+from src.models import ChecklistItem, GitHubSyncError, ItemCategory, TripChecklist
 from src.utils.logging_config import get_logger
+from src.utils.markdown_utils import MarkdownProcessor
 
 logger = get_logger(__name__)
 
@@ -353,10 +357,108 @@ template_used: "{checklist.template_used or "manual"}"
 
         return front_matter + checklist.to_markdown()
 
+    def _parse_front_matter(self, lines: list[str]) -> dict[str, Any]:
+        """Front Matterを解析してメタデータを取得."""
+        front_matter: dict[str, Any] = {}
+        if lines[0] == "---":
+            # Front Matterの終了位置を探す
+            end_idx = next((i for i, line in enumerate(lines[1:], 1) if line == "---"), None)
+            if end_idx:
+                # Front Matterをパース
+                for line in lines[1:end_idx]:
+                    if ":" in line:
+                        key, value = line.split(":", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"')
+
+                        # 入れ子の場合の処理（dates:など）
+                        if key == "dates":
+                            front_matter["dates"] = {}
+                        elif "start:" in line and "dates" in front_matter:
+                            dates_dict = front_matter.get("dates", {})
+                            if isinstance(dates_dict, dict):
+                                dates_dict["start"] = value
+                                front_matter["dates"] = dates_dict
+                        elif "end:" in line and "dates" in front_matter:
+                            dates_dict = front_matter.get("dates", {})
+                            if isinstance(dates_dict, dict):
+                                dates_dict["end"] = value
+                                front_matter["dates"] = dates_dict
+                        else:
+                            front_matter[key] = value
+        return front_matter
+
     def _parse_markdown_to_checklist(
         self, markdown_content: str, metadata: dict[str, Any]
     ) -> TripChecklist:
         """MarkdownコンテンツからTripChecklistオブジェクトを復元."""
-        # TODO: 実装が必要
-        # この実装は複雑になるため、別途詳細な実装が必要
-        raise NotImplementedError("Markdown parsing is not yet implemented")
+        # Front Matterを解析してメタデータを取得
+        lines = markdown_content.split("\n")
+        front_matter = self._parse_front_matter(lines)
+
+        # Markdownからチェックリスト項目を抽出
+        processor = MarkdownProcessor()
+        items_data = processor.extract_checklist_items(markdown_content)
+
+        # ChecklistItemオブジェクトのリストを作成
+        items = []
+        for category, item_name, checked in items_data:
+            # カテゴリをItemCategoryに変換
+            category_map: dict[str, ItemCategory] = {
+                "移動関連": "移動関連",
+                "仕事関連": "仕事関連",
+                "服装・身だしなみ": "服装・身だしなみ",
+                "生活用品": "生活用品",
+                "金銭関連": "金銭関連",
+                "天気対応": "天気対応",
+                "地域特有": "地域特有",
+                "交通関連": "移動関連",  # 別名対応
+                "衣類": "服装・身だしなみ",  # 別名対応
+            }
+            mapped_category = category_map.get(category, "生活用品")  # デフォルト
+
+            item = ChecklistItem(
+                name=item_name,
+                category=mapped_category,
+                checked=checked,
+                auto_added=False,  # 復元時は判定不可
+                reason=None,
+            )
+            items.append(item)
+
+        # 日付の解析
+        try:
+            if "dates" in front_matter and "start" in front_matter["dates"]:
+                start_date = dt.fromisoformat(front_matter["dates"]["start"]).date()
+            else:
+                start_date = dt.fromisoformat(
+                    metadata.get("created_at", dt.now().isoformat())
+                ).date()
+
+            if "dates" in front_matter and "end" in front_matter["dates"]:
+                end_date = dt.fromisoformat(front_matter["dates"]["end"]).date()
+            else:
+                # 開始日の3日後をデフォルトとする
+                end_date = start_date + timedelta(days=3)
+        except Exception:
+            # エラー時は現在日時を使用
+            start_date = dt.now().date()
+            end_date = start_date + timedelta(days=3)
+
+        # TripChecklistオブジェクトを作成
+        checklist = TripChecklist(
+            id=metadata.get("checklist_id", str(uuid4())),
+            destination=front_matter.get("destination", "不明"),
+            start_date=start_date,
+            end_date=end_date,
+            purpose=front_matter.get("type", "business_trip").replace("_trip", ""),
+            items=items,
+            status=front_matter.get("status", metadata.get("status", "planning")),
+            created_at=dt.fromisoformat(metadata.get("created_at", dt.now().isoformat())),
+            updated_at=dt.fromisoformat(metadata.get("updated_at", dt.now().isoformat())),
+            user_id=metadata.get("user_id", ""),
+            template_used=metadata.get("template_used"),
+            weather_data=metadata.get("weather_data"),
+        )
+
+        return checklist

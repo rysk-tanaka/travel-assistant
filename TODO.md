@@ -74,6 +74,12 @@
   - [x] Markdownユーティリティのテスト（`test_markdown_utils.py`）
   - [x] 設定のテスト（`test_settings.py`）
 
+- [x] **GitHub履歴表示機能** ✅ 実装済み（2025-07-01）
+  - [x] GitHubからのチェックリスト読み込み機能
+  - [x] Markdownパース機能（`_parse_markdown_to_checklist`）
+  - [x] 履歴選択UI（ドロップダウンメニュー）
+  - [x] `/trip_history`コマンドの拡張
+
 ## 🌟 Phase 2: スマート機能拡張
 
 ### 🌤️ 外部API連携
@@ -223,5 +229,5 @@
 
 ---
 
-*最終更新: 2025-06-30*
+*最終更新: 2025-07-01*
 *次回レビュー予定: Phase 2開始時*

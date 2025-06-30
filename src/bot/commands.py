@@ -189,7 +189,11 @@ class TripCommands(commands.Cog):
                 )
 
             embed.set_footer(text=f"合計 {len(trips)} 件の旅行記録")
-            await interaction.followup.send(embed=embed)
+
+            # 履歴選択ビューを追加
+            view = TripHistoryView(trips[:10], self)
+
+            await interaction.followup.send(embed=embed, view=view)
 
         except Exception as e:
             logger.error(f"Error fetching trip history: {e}")
@@ -400,6 +404,96 @@ class ChecklistView(discord.ui.View):
         except Exception as e:
             logger.error(f"Unexpected error saving checklist: {e}")
             await interaction.followup.send("❌ 予期しないエラーが発生しました。", ephemeral=True)
+
+
+class TripHistoryView(discord.ui.View):
+    """旅行履歴選択用のView."""
+
+    def __init__(self, trips: list[dict[str, Any]], cog: TripCommands, timeout: float = 300):
+        """初期化."""
+        super().__init__(timeout=timeout)
+        self.trips = trips
+        self.cog = cog
+
+        # ドロップダウンメニューを追加
+        if trips:
+            self.add_item(TripSelectDropdown(trips, cog))
+
+
+class TripSelectDropdown(discord.ui.Select[discord.ui.View]):
+    """旅行選択ドロップダウン."""
+
+    def __init__(self, trips: list[dict[str, Any]], cog: TripCommands):
+        """初期化."""
+        self.cog = cog
+
+        # ドロップダウンのオプションを作成
+        options = []
+        for trip in trips[:25]:  # Discord制限：最大25個
+            filename = trip["filename"]
+            completion = trip.get("completion_percentage", 0)
+            status_emoji = {"planning": "📝", "ongoing": "✈️", "completed": "✅"}.get(
+                trip.get("status", "planning"), "📋"
+            )
+
+            options.append(
+                discord.SelectOption(
+                    label=f"{status_emoji} {filename[:50]}",  # 長すぎる場合は切り詰め
+                    description=f"進捗: {completion:.1f}% | {trip.get('updated_at', '不明')[:10]}",
+                    value=trip["checklist_id"],
+                )
+            )
+
+        super().__init__(
+            placeholder="表示する旅行を選択してください...",
+            options=options,
+            min_values=1,
+            max_values=1,
+            custom_id="select_trip",
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """選択されたときの処理."""
+        checklist_id = self.values[0]
+        user_id = str(interaction.user.id)
+
+        if not self.cog.github_sync:
+            await interaction.response.send_message(
+                "GitHub同期機能が初期化されていません。", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # チェックリストを読み込み
+            checklist = self.cog.github_sync.load_checklist(checklist_id, user_id)
+
+            if not checklist:
+                await interaction.followup.send(
+                    "チェックリストが見つかりませんでした。", ephemeral=True
+                )
+                return
+
+            # メモリに保存（操作できるように）
+            self.cog.checklists[checklist.id] = checklist
+
+            # Embed作成
+            embed = self.cog.create_checklist_embed(checklist)
+            view = ChecklistView(checklist.id, self.cog)
+
+            await interaction.followup.send(
+                content="📋 チェックリストを読み込みました！",
+                embed=embed,
+                view=view,
+                ephemeral=False,
+            )
+
+        except Exception as e:
+            logger.error(f"Error loading checklist from history: {e}")
+            await interaction.followup.send(
+                f"❌ チェックリストの読み込み中にエラーが発生しました: {e}", ephemeral=True
+            )
 
 
 async def setup(bot: commands.Bot) -> None:
