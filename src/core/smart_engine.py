@@ -7,12 +7,16 @@ Smart template engine for checklist generation.
 from typing import Any
 
 from src.config.settings import settings
+from src.core.transport_rules import TransportRulesLoader
+from src.core.weather_service import WeatherService
 from src.models import (
     ChecklistItem,
     ItemCategory,
     TemplateType,
     TripChecklist,
     TripRequest,
+    WeatherAPIError,
+    WeatherDataDict,
 )
 from src.utils.logging_config import get_logger
 from src.utils.markdown_utils import MarkdownProcessor
@@ -26,6 +30,8 @@ class SmartTemplateEngine:
     def __init__(self) -> None:
         """初期化."""
         self.markdown_processor = MarkdownProcessor()
+        self.weather_service = WeatherService() if settings.is_feature_enabled("weather") else None
+        self.transport_rules = TransportRulesLoader()
         self.template_cache: dict[str, Any] = {}
         logger.info("SmartTemplateEngine initialized")
 
@@ -60,7 +66,25 @@ class SmartTemplateEngine:
         # 5. 調整適用（天気、地域、個人）
         adjusted_items = await self._apply_adjustments(items, request)
 
-        # 6. チェックリストオブジェクト作成
+        # 6. 天気データを取得（オプション）
+        weather_data = None
+        if settings.is_feature_enabled("weather") and self.weather_service:
+            try:
+                weather_summary = await self.weather_service.get_weather_summary(
+                    request.destination, request.start_date, request.end_date
+                )
+                weather_data = WeatherDataDict(
+                    average_temperature=weather_summary.avg_temperature,
+                    max_temperature=weather_summary.max_temperature,
+                    min_temperature=weather_summary.min_temperature,
+                    rain_probability=weather_summary.max_rain_probability,
+                    conditions="rainy" if weather_summary.has_rain else "sunny",
+                    forecast_date=request.start_date.isoformat(),
+                )
+            except WeatherAPIError as e:
+                logger.warning(f"Failed to get weather data: {e}")
+
+        # 7. チェックリストオブジェクト作成
         checklist = TripChecklist(
             destination=request.destination,
             start_date=request.start_date,
@@ -69,6 +93,7 @@ class SmartTemplateEngine:
             items=adjusted_items,
             user_id=request.user_id,
             template_used=template_type,
+            weather_data=weather_data,
         )
 
         logger.info(f"Generated checklist with {len(checklist.items)} items (ID: {checklist.id})")
@@ -174,10 +199,9 @@ class SmartTemplateEngine:
             transport_items = self._get_transport_adjustments(request)
             adjusted_items.extend(transport_items)
 
-        # 4. 天気調整（Phase 2で実装）
-        if settings.is_feature_enabled("weather"):
-            # TODO: 天気API連携
-            pass
+        # 4. 天気調整
+        weather_items = await self._get_weather_adjustments(request)
+        adjusted_items.extend(weather_items)
 
         # 5. 個人調整（Phase 3で実装）
         # TODO: 個人履歴に基づく調整
@@ -272,42 +296,230 @@ class SmartTemplateEngine:
 
     def _get_transport_adjustments(self, request: TripRequest) -> list[ChecklistItem]:
         """交通手段による調整."""
-        items = []
+        if not request.transport_method:
+            return []
 
-        if request.transport_method == "airplane":
-            items.extend(
-                [
-                    ChecklistItem(
-                        name="機内持ち込み用透明袋（液体用）",
-                        category="移動関連",
-                        auto_added=True,
-                        reason="飛行機の液体制限対応",
-                    ),
-                    ChecklistItem(
-                        name="耳栓・アイマスク",
-                        category="移動関連",
-                        auto_added=True,
-                        reason="機内快適グッズ",
-                    ),
-                ]
+        # 追加条件の設定
+        additional_conditions: dict[str, Any] = {}
+
+        # 新幹線かどうか（より詳細な判定）
+        if request.transport_method == "train":
+            # 新幹線駅がある都市のリスト
+            shinkansen_cities = [
+                "東京",
+                "品川",
+                "新横浜",
+                "小田原",
+                "熱海",
+                "三島",
+                "新富士",
+                "静岡",
+                "掛川",
+                "浜松",
+                "豊橋",
+                "三河安城",
+                "名古屋",
+                "岐阜羽島",
+                "米原",
+                "京都",
+                "新大阪",
+                "新神戸",
+                "西明石",
+                "姫路",
+                "岡山",
+                "福山",
+                "広島",
+                "新山口",
+                "小倉",
+                "博多",
+                "仙台",
+                "盛岡",
+                "新青森",
+                "新函館北斗",
+                "金沢",
+                "富山",
+                "長野",
+                "高崎",
+                "大宮",
+                "鹿児島",
+                "熊本",
+                "長崎",
+            ]
+            # 主要都市間の移動なら新幹線の可能性が高い
+            is_shinkansen = any(city in request.destination for city in shinkansen_cities)
+            additional_conditions["is_shinkansen"] = is_shinkansen
+
+            # 移動距離の推定（簡易版）
+            if request.duration >= 2 or any(
+                city in request.destination for city in ["札幌", "福岡", "仙台", "広島"]
+            ):
+                additional_conditions["long_distance"] = True
+
+        # バスの詳細判定
+        if request.transport_method == "bus":
+            # 長距離移動の可能性を判定
+            is_long_distance = request.duration >= 1  # 1泊以上なら高速バスの可能性大
+            additional_conditions["is_highway"] = is_long_distance
+
+            # 夜行バスの判定（宿泊を伴わない長距離移動の可能性）
+            if request.duration == 0 and any(
+                city in request.destination for city in ["大阪", "名古屋", "仙台", "広島"]
+            ):
+                additional_conditions["night_bus"] = True
+
+        # 車の詳細判定
+        if request.transport_method == "car":
+            # レンタカーの可能性を判定（観光地や空港近くの目的地）
+            tourist_areas = ["沖縄", "北海道", "石垣", "宮古", "屋久島", "小豆島"]
+            additional_conditions["is_rental"] = any(
+                area in request.destination for area in tourist_areas
             )
 
-        elif request.transport_method == "car":
-            items.extend(
-                [
-                    ChecklistItem(
-                        name="ETCカード",
-                        category="移動関連",
-                        auto_added=True,
-                        reason="車移動のため",
-                    ),
-                    ChecklistItem(
-                        name="車載充電器",
-                        category="移動関連",
-                        auto_added=True,
-                        reason="車移動のため",
-                    ),
-                ]
-            )
+            # 移動距離の推定
+            additional_conditions["distance"] = 200 if request.duration >= 2 else 100
+
+        # その他の交通手段
+        if request.transport_method == "other":
+            # デフォルトで自転車を想定
+            additional_conditions["sub_method"] = "bicycle"
+
+        # 共通の長距離判定
+        additional_conditions["long_distance"] = request.duration >= 2
+
+        # TransportRulesLoaderを使用してアイテムを取得
+        items = self.transport_rules.get_transport_items(
+            transport_method=request.transport_method,
+            trip_duration=request.duration,
+            is_domestic=True,  # 現在は国内のみ対応
+            month=request.start_date.month,
+            additional_conditions=additional_conditions,
+        )
+
+        logger.info(
+            f"Transport adjustments for {request.transport_method}: "
+            f"{len(items)} items added (conditions: {additional_conditions})"
+        )
 
         return items
+
+    async def _get_weather_adjustments(self, request: TripRequest) -> list[ChecklistItem]:
+        """天気予報による調整."""
+        items: list[ChecklistItem] = []
+
+        if not settings.is_feature_enabled("weather") or not self.weather_service:
+            return items
+
+        try:
+            # 天気予報を取得
+            weather_summary = await self.weather_service.get_weather_summary(
+                request.destination, request.start_date, request.end_date
+            )
+            logger.info(
+                f"Weather summary for {request.destination}: "
+                f"Rain: {weather_summary.has_rain}, "
+                f"Temp: {weather_summary.min_temperature:.1f}-"
+                f"{weather_summary.max_temperature:.1f}°C"
+            )
+
+            # 雨天対策
+            if weather_summary.has_rain or weather_summary.max_rain_probability > 30:
+                items.append(
+                    ChecklistItem(
+                        name="折り畳み傘",
+                        category="天気対応",
+                        auto_added=True,
+                        reason=f"降水確率{weather_summary.max_rain_probability:.0f}%の予報",
+                    )
+                )
+
+                if weather_summary.max_rain_probability > 60:
+                    items.append(
+                        ChecklistItem(
+                            name="レインコート",
+                            category="天気対応",
+                            auto_added=True,
+                            reason="高い降水確率のため",
+                        )
+                    )
+                    items.append(
+                        ChecklistItem(
+                            name="防水バッグ・カバー",
+                            category="天気対応",
+                            auto_added=True,
+                            reason="荷物の雨対策",
+                        )
+                    )
+
+            # 気温対策
+            if weather_summary.min_temperature < 10:
+                items.append(
+                    ChecklistItem(
+                        name="防寒着（ジャケット・コート）",
+                        category="服装・身だしなみ",
+                        auto_added=True,
+                        reason=f"最低気温{weather_summary.min_temperature:.1f}°Cの予報",
+                    )
+                )
+
+                if weather_summary.min_temperature < 5:
+                    items.append(
+                        ChecklistItem(
+                            name="ホッカイロ",
+                            category="天気対応",
+                            auto_added=True,
+                            reason="寒さ対策",
+                        )
+                    )
+
+            if weather_summary.max_temperature > 30:
+                items.append(
+                    ChecklistItem(
+                        name="日焼け止め（SPF30以上）",
+                        category="生活用品",
+                        auto_added=True,
+                        reason=f"最高気温{weather_summary.max_temperature:.1f}°Cの予報",
+                    )
+                )
+                items.append(
+                    ChecklistItem(
+                        name="冷却グッズ（冷却タオル等）",
+                        category="生活用品",
+                        auto_added=True,
+                        reason="暑さ対策",
+                    )
+                )
+                items.append(
+                    ChecklistItem(
+                        name="水分補給用ボトル",
+                        category="生活用品",
+                        auto_added=True,
+                        reason="熟中症対策",
+                    )
+                )
+
+            # 特殊な天気条件
+            if "Snow" in weather_summary.weather_conditions:
+                items.append(
+                    ChecklistItem(
+                        name="滑り止め付き靴",
+                        category="服装・身だしなみ",
+                        auto_added=True,
+                        reason="雪予報のため",
+                    )
+                )
+
+            if "Wind" in weather_summary.weather_conditions:
+                items.append(
+                    ChecklistItem(
+                        name="ウィンドブレーカー",
+                        category="服装・身だしなみ",
+                        auto_added=True,
+                        reason="強風予報のため",
+                    )
+                )
+
+            return items
+
+        except WeatherAPIError as e:
+            logger.warning(f"Failed to get weather adjustments: {e}")
+            return items
