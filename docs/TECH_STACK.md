@@ -3,6 +3,7 @@
 ## 🐍 Core Technology Stack
 
 ### **Backend Framework**
+
 ```python
 # メインフレームワーク
 discord.py              # Discord Bot開発
@@ -12,6 +13,7 @@ aiofiles               # 非同期ファイル操作
 ```
 
 ### **Data Processing**
+
 ```python
 # データ処理・操作
 PyGithub               # GitHub API連携
@@ -22,6 +24,7 @@ pandas                # データ分析（将来の学習機能用）
 ```
 
 ### **External APIs**
+
 ```python
 # 外部API連携
 anthropic             # Claude API (公式SDK)
@@ -30,6 +33,7 @@ python-dotenv         # 環境変数管理
 ```
 
 ### **Development Tools**
+
 ```python
 # 開発・テスト
 pytest                # テストフレームワーク
@@ -40,7 +44,7 @@ pre-commit           # Git hooks
 
 ## 📁 プロジェクト構成
 
-```
+```bash
 travel-assistant/
 ├── src/
 │   ├── bot/
@@ -81,6 +85,7 @@ travel-assistant/
 ## 🚀 実装例
 
 ### 環境セットアップ（uv使用）
+
 ```bash
 # uvのインストール
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -100,6 +105,7 @@ uv run mypy .              # 型チェック
 ```
 
 ### Discord Bot基本実装
+
 ```python
 # src/bot/commands.py
 import discord
@@ -110,7 +116,7 @@ class TripCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.smart_engine = SmartTemplateEngine()
-    
+
     @discord.slash_command(
         description="スマートチェックリストを生成します"
     )
@@ -121,13 +127,13 @@ class TripCommands(commands.Cog):
         start_date: discord.Option(str, "開始日 (YYYY-MM-DD)"),
         end_date: discord.Option(str, "終了日 (YYYY-MM-DD)"),
         purpose: discord.Option(
-            str, 
-            "目的", 
+            str,
+            "目的",
             choices=["business", "leisure"]
         )
     ):
         await ctx.defer()  # 処理時間確保
-        
+
         try:
             # チェックリスト生成
             checklist = await self.smart_engine.generate_checklist(
@@ -137,23 +143,23 @@ class TripCommands(commands.Cog):
                 purpose=purpose,
                 user_id=str(ctx.user.id)
             )
-            
+
             # Discord Embed作成
             embed = self.create_checklist_embed(checklist)
             view = ChecklistView(checklist.id)
-            
+
             await ctx.followup.send(embed=embed, view=view)
-            
+
         except Exception as e:
             await ctx.followup.send(f"エラーが発生しました: {e}")
-    
+
     def create_checklist_embed(self, checklist):
         embed = discord.Embed(
             title=f"🧳 {checklist.destination} チェックリスト",
             description=f"期間: {checklist.start_date} ～ {checklist.end_date}",
             color=discord.Color.blue()
         )
-        
+
         # カテゴリ別に表示
         for category, items in checklist.items_by_category.items():
             value = "\n".join([
@@ -162,13 +168,13 @@ class TripCommands(commands.Cog):
             ])
             if len(items) > 5:
                 value += f"\n... 他{len(items)-5}項目"
-            
+
             embed.add_field(
                 name=f"📋 {category}",
                 value=value,
                 inline=False
             )
-        
+
         # 進捗情報
         progress = checklist.completion_percentage
         embed.add_field(
@@ -176,7 +182,7 @@ class TripCommands(commands.Cog):
             value=f"{progress:.1f}% ({checklist.completed_count}/{checklist.total_count})",
             inline=True
         )
-        
+
         return embed
 
 # ボタンインタラクション
@@ -184,27 +190,27 @@ class ChecklistView(discord.ui.View):
     def __init__(self, checklist_id: str):
         super().__init__(timeout=300)  # 5分でタイムアウト
         self.checklist_id = checklist_id
-    
+
     @discord.ui.button(
-        label="✅ 項目チェック", 
+        label="✅ 項目チェック",
         style=discord.ButtonStyle.green
     )
     async def check_items(
-        self, 
-        button: discord.ui.Button, 
+        self,
+        button: discord.ui.Button,
         interaction: discord.Interaction
     ):
         # モーダルでチェック項目選択
         modal = CheckItemModal(self.checklist_id)
         await interaction.response.send_modal(modal)
-    
+
     @discord.ui.button(
-        label="📊 進捗確認", 
+        label="📊 進捗確認",
         style=discord.ButtonStyle.blue
     )
     async def show_progress(
-        self, 
-        button: discord.ui.Button, 
+        self,
+        button: discord.ui.Button,
         interaction: discord.Interaction
     ):
         # 進捗詳細表示
@@ -212,6 +218,7 @@ class ChecklistView(discord.ui.View):
 ```
 
 ### スマートテンプレートエンジン
+
 ```python
 # src/core/smart_engine.py
 from typing import Dict, List, Optional
@@ -231,7 +238,7 @@ class ChecklistItem:
     auto_added: bool = False
     reason: Optional[str] = None
 
-@dataclass 
+@dataclass
 class TripChecklist:
     id: str
     destination: str
@@ -239,7 +246,7 @@ class TripChecklist:
     end_date: date
     purpose: str
     items: List[ChecklistItem]
-    
+
     @property
     def items_by_category(self) -> Dict[str, List[ChecklistItem]]:
         result = {}
@@ -248,17 +255,17 @@ class TripChecklist:
                 result[item.category] = []
             result[item.category].append(item)
         return result
-    
+
     @property
     def completion_percentage(self) -> float:
         if not self.items:
             return 0.0
         return (sum(1 for item in self.items if item.checked) / len(self.items)) * 100
-    
+
     @property
     def completed_count(self) -> int:
         return sum(1 for item in self.items if item.checked)
-    
+
     @property
     def total_count(self) -> int:
         return len(self.items)
@@ -268,7 +275,7 @@ class SmartTemplateEngine:
         self.weather_service = WeatherService()
         self.github_sync = GitHubSync()
         self.markdown_processor = MarkdownProcessor()
-    
+
     async def generate_checklist(
         self,
         destination: str,
@@ -278,17 +285,17 @@ class SmartTemplateEngine:
         user_id: str
     ) -> TripChecklist:
         """スマートチェックリスト生成のメイン処理"""
-        
+
         # 1. 基本テンプレート選択
         base_template = self._select_base_template(destination, purpose)
-        
+
         # 2. 並行してデータ取得
         weather_data, user_history = await asyncio.gather(
             self.weather_service.get_forecast(destination, start_date, end_date),
             self._load_user_history(user_id),
             return_exceptions=True
         )
-        
+
         # 3. 調整適用
         checklist_items = self._apply_adjustments(
             base_template=base_template,
@@ -297,7 +304,7 @@ class SmartTemplateEngine:
             duration=self._calculate_duration(start_date, end_date),
             user_history=user_history if not isinstance(user_history, Exception) else None
         )
-        
+
         # 4. チェックリストオブジェクト作成
         checklist = TripChecklist(
             id=self._generate_checklist_id(destination, start_date),
@@ -307,12 +314,12 @@ class SmartTemplateEngine:
             purpose=purpose,
             items=checklist_items
         )
-        
+
         # 5. GitHub保存
         await self.github_sync.save_checklist(checklist)
-        
+
         return checklist
-    
+
     def _select_base_template(self, destination: str, purpose: str) -> Dict:
         """ベーステンプレート選択ロジック"""
         # 札幌出張なら専用テンプレート
@@ -322,7 +329,7 @@ class SmartTemplateEngine:
             return self.markdown_processor.load_template("domestic_business.md")
         else:
             return self.markdown_processor.load_template("leisure_domestic.md")
-    
+
     def _apply_adjustments(
         self,
         base_template: Dict,
@@ -332,9 +339,9 @@ class SmartTemplateEngine:
         user_history: Optional[Dict]
     ) -> List[ChecklistItem]:
         """各種調整を適用してアイテムリスト生成"""
-        
+
         items = []
-        
+
         # ベーステンプレートから基本アイテム
         for category, base_items in base_template["categories"].items():
             for item_name in base_items:
@@ -343,31 +350,31 @@ class SmartTemplateEngine:
                     category=category,
                     auto_added=False
                 ))
-        
+
         # 天気調整
         if weather_data:
             weather_items = self._get_weather_adjustments(weather_data)
             items.extend(weather_items)
-        
+
         # 地域調整
         regional_items = self._get_regional_adjustments(destination)
         items.extend(regional_items)
-        
+
         # 期間調整
         duration_items = self._get_duration_adjustments(duration)
         items.extend(duration_items)
-        
+
         # 個人履歴調整
         if user_history:
             personal_items = self._get_personal_adjustments(user_history, destination)
             items.extend(personal_items)
-        
+
         return items
-    
+
     def _get_weather_adjustments(self, weather_data: Dict) -> List[ChecklistItem]:
         """天気予報に基づく調整"""
         items = []
-        
+
         if weather_data.get("rain_probability", 0) > 50:
             items.append(ChecklistItem(
                 name="折り畳み傘",
@@ -377,11 +384,11 @@ class SmartTemplateEngine:
             ))
             items.append(ChecklistItem(
                 name="レインコート",
-                category="天気対応", 
+                category="天気対応",
                 auto_added=True,
                 reason="雨予報のため"
             ))
-        
+
         avg_temp = weather_data.get("average_temperature", 20)
         if avg_temp < 10:
             items.append(ChecklistItem(
@@ -397,7 +404,7 @@ class SmartTemplateEngine:
                 auto_added=True,
                 reason=f"平均気温{avg_temp}℃"
             ))
-        
+
         return items
 
 # メイン実行ファイル
@@ -412,21 +419,21 @@ def main():
     # Bot設定
     intents = discord.Intents.default()
     intents.message_content = True
-    
+
     bot = commands.Bot(
         command_prefix='!',
         intents=intents,
         description='AI-powered Travel Assistant'
     )
-    
+
     # コマンド登録
     bot.add_cog(TripCommands(bot))
-    
+
     @bot.event
     async def on_ready():
         print(f'{bot.user} としてログインしました！')
         await bot.sync_commands()  # スラッシュコマンド同期
-    
+
     # Bot実行
     bot.run(Settings.DISCORD_TOKEN)
 
@@ -437,15 +444,18 @@ if __name__ == "__main__":
 ## 依存関係管理
 
 ### uvを使用したパッケージ管理
+
 このプロジェクトでは `uv` を使用してPythonパッケージを管理しています。
 
 **uvの利点:**
+
 - ⚡ **高速**: pipよりも10-100倍高速なパッケージインストール
 - 🔧 **統合環境**: Python環境とパッケージ管理が統合
 - 🔒 **再現性**: ロックファイルによる完全な依存関係管理
 - 📦 **互換性**: pyproject.toml標準に準拠
 
 ### pyproject.toml による設定管理
+
 ```toml
 # pyproject.toml
 [project]
@@ -482,11 +492,12 @@ build-backend = "hatchling.build"
 ## 開発効率の比較
 
 ### **Python経験者の場合**
-```
+
+```text
 開発時間:    Python 100%  vs  Node.js 150-200%
 デバッグ:    Python 100%  vs  Node.js 120-150%
 保守性:      Python 100%  vs  Node.js 110-130%
 学習コスト:  Python 0%    vs  Node.js 20-40%
 ```
 
-**結論: Python選択で30-50%の開発効率向上が期待できる**
+結論: Python選択で30-50%の開発効率向上が期待できる

@@ -11,13 +11,15 @@ TravelAssistantにGitHub連携機能を実装しました。この機能によ�
 GitHub APIとの連携を管理するメインクラスです。
 
 **主な機能:**
+
 - チェックリストのGitHub保存
 - メタデータの管理
 - 過去の旅行履歴取得
 - チェックリストの削除
 
 **ファイル構造:**
-```
+
+```bash
 travel-assistant-data/
 ├── trips/
 │   └── 2025/
@@ -29,12 +31,14 @@ travel-assistant-data/
 ### 2. Discord Bot コマンドの更新 (`src/bot/commands.py`)
 
 **新機能:**
+
 - 💾 保存ボタン: チェックリストをGitHubに保存
 - `/trip_history` コマンド: 過去の旅行履歴を表示
 
 ### 3. 設定項目 (`src/config/settings.py`)
 
 **必要な環境変数:**
+
 ```bash
 # .env ファイル
 GITHUB_TOKEN=your_github_personal_access_token
@@ -65,6 +69,7 @@ gh repo create travel-assistant-data --private
 ### 3. 環境変数の設定
 
 `.env` ファイルに以下を追加:
+
 ```bash
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxx
 GITHUB_USERNAME=your-username
@@ -82,9 +87,10 @@ ENABLE_GITHUB_SYNC=true
 
 ### 過去の履歴確認
 
-```
+```bash
 /trip_history
 ```
+
 - 最新10件の旅行履歴を表示
 - 各旅行の進捗状況を確認
 - GitHubリンクから詳細を閲覧可能
@@ -92,6 +98,7 @@ ENABLE_GITHUB_SYNC=true
 ## データフォーマット
 
 ### Markdownファイル
+
 ```markdown
 ---
 type: "business_trip"
@@ -119,6 +126,7 @@ template_used: "sapporo_business"
 ```
 
 ### メタデータファイル
+
 ```json
 {
   "checklist_id": "abc123",
