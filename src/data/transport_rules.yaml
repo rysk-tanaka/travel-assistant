@@ -1,0 +1,369 @@
+# 交通手段別ルール定義
+# 各交通手段に特有の持ち物や注意事項を定義
+
+transport_methods:
+  airplane:
+    display_name: "飛行機"
+    domestic:
+      restrictions:
+        liquids:
+          description: "液体物の機内持ち込み制限"
+          items:
+            - name: "機内持ち込み用透明袋（1L以下）"
+              category: "移動関連"
+              reason: "100ml以下の容器に液体を入れて透明袋に"
+            - name: "小分け容器セット"
+              category: "生活用品"
+              reason: "化粧品・洗面用具の小分け用"
+
+        battery:
+          description: "バッテリー関連の制限"
+          items:
+            - name: "モバイルバッテリー（手荷物用）"
+              category: "移動関連"
+              reason: "預け荷物には入れられません"
+              warning: true
+
+        prohibited:
+          description: "持ち込み禁止品"
+          warnings:
+            - "ハサミ・刃物類は預け荷物へ"
+            - "ライター・マッチは1個まで"
+
+      recommendations:
+        comfort:
+          description: "機内快適グッズ"
+          items:
+            - name: "耳栓・アイマスク"
+              category: "移動関連"
+              reason: "機内での快眠用"
+            - name: "ネックピロー"
+              category: "移動関連"
+              reason: "長時間フライトの首サポート"
+              condition: "duration >= 2"
+            - name: "機内用スリッパ"
+              category: "移動関連"
+              reason: "足のむくみ対策"
+
+        preparation:
+          description: "事前準備"
+          items:
+            - name: "オンラインチェックイン確認"
+              category: "移動関連"
+              reason: "空港での待ち時間短縮"
+              type: "task"
+            - name: "座席指定確認"
+              category: "移動関連"
+              reason: "快適な座席の確保"
+              type: "task"
+
+        timing:
+          description: "時間管理"
+          recommendations:
+            - "国内線は出発1時間前までに空港到着"
+            - "繁忙期は2時間前到着推奨"
+            - "預け荷物がある場合は余裕を持って"
+
+    international:
+      additional_items:
+        documents:
+          description: "必要書類"
+          items:
+            - name: "パスポート"
+              category: "移動関連"
+              reason: "有効期限を必ず確認"
+              critical: true
+            - name: "ビザ（必要な場合）"
+              category: "移動関連"
+              reason: "渡航先により必要"
+              conditional: true
+            - name: "ESTA/eTA等の電子渡航認証"
+              category: "移動関連"
+              reason: "アメリカ・カナダなど"
+              conditional: true
+
+        money:
+          description: "金銭関連"
+          items:
+            - name: "現地通貨"
+              category: "金銭関連"
+              reason: "到着後すぐに必要な分"
+            - name: "クレジットカード（複数枚）"
+              category: "金銭関連"
+              reason: "メイン・サブの使い分け"
+
+        electronics:
+          description: "電子機器"
+          items:
+            - name: "変換プラグ"
+              category: "生活用品"
+              reason: "渡航先のコンセント形状に対応"
+              critical: true
+            - name: "変圧器（必要な場合）"
+              category: "生活用品"
+              reason: "電圧が異なる国への渡航時"
+              conditional: true
+
+      timing:
+        recommendations:
+          - "国際線は出発3時間前までに空港到着"
+          - "オンラインチェックインを活用"
+          - "出入国審査の時間を考慮"
+
+  train:
+    display_name: "新幹線・電車"
+    shinkansen:
+      description: "新幹線利用時"
+      items:
+        tickets:
+          - name: "指定席券・乗車券"
+            category: "移動関連"
+            reason: "紙/デジタルチケットの確認"
+            critical: true
+          - name: "EX-ICカード（東海道・山陽）"
+            category: "移動関連"
+            reason: "スマートEX利用時"
+            conditional: true
+
+        comfort:
+          - name: "車内用の飲み物・軽食"
+            category: "生活用品"
+            reason: "長時間移動の水分・栄養補給"
+          - name: "アイマスク・耳栓"
+            category: "移動関連"
+            reason: "車内での仮眠用"
+            condition: "duration >= 3"
+
+        luggage:
+          - name: "大型荷物の事前予約確認"
+            category: "移動関連"
+            reason: "特大荷物スペース予約（東海道・山陽・九州）"
+            type: "task"
+            condition: "large_luggage"
+
+      recommendations:
+        - "駅弁の事前リサーチ"
+        - "コンセント付き座席の確認"
+        - "喫煙車両の有無確認"
+        - "自由席の場合は早めに並ぶ"
+
+    local_train:
+      description: "在来線・私鉄利用時"
+      items:
+        - name: "交通系ICカード"
+          category: "移動関連"
+          reason: "切符購入の手間を省く"
+          critical: true
+        - name: "時刻表アプリ"
+          category: "移動関連"
+          reason: "遅延・運休情報の確認"
+          type: "app"
+
+  car:
+    display_name: "車"
+    personal_car:
+      description: "自家用車利用時"
+      items:
+        documents:
+          - name: "運転免許証"
+            category: "移動関連"
+            reason: "必ず携帯"
+            critical: true
+          - name: "車検証・自賠責保険証"
+            category: "移動関連"
+            reason: "車載確認"
+            type: "check"
+
+        payment:
+          - name: "ETCカード"
+            category: "移動関連"
+            reason: "高速道路料金支払い"
+            critical: true
+          - name: "駐車場用の小銭"
+            category: "金銭関連"
+            reason: "コインパーキング対応"
+
+        equipment:
+          - name: "車載充電器（シガーソケット）"
+            category: "移動関連"
+            reason: "スマホ・機器の充電"
+          - name: "カーナビ/スマホホルダー"
+            category: "移動関連"
+            reason: "安全な経路確認"
+          - name: "サングラス"
+            category: "移動関連"
+            reason: "日差し対策・安全運転"
+
+        emergency:
+          - name: "緊急脱出用ハンマー"
+            category: "移動関連"
+            reason: "車載推奨"
+            type: "equipment"
+          - name: "ブースターケーブル"
+            category: "移動関連"
+            reason: "バッテリー上がり対策"
+            condition: "long_distance"
+
+        maintenance:
+          - name: "ガソリン満タン確認"
+            category: "移動関連"
+            reason: "出発前に給油"
+            type: "task"
+          - name: "タイヤ空気圧確認"
+            category: "移動関連"
+            reason: "長距離運転前の安全確認"
+            type: "task"
+            condition: "distance >= 200"
+
+      seasonal:
+        winter:
+          - name: "スタッドレスタイヤ/チェーン"
+            category: "移動関連"
+            reason: "雪道対策"
+            critical: true
+            months: [12, 1, 2, 3]
+          - name: "解氷スプレー"
+            category: "移動関連"
+            reason: "フロントガラス凍結対策"
+            months: [12, 1, 2]
+          - name: "雪かきブラシ"
+            category: "移動関連"
+            reason: "積雪時の雪下ろし"
+            months: [12, 1, 2, 3]
+
+        summer:
+          - name: "車内用日よけ"
+            category: "移動関連"
+            reason: "駐車時の車内温度上昇防止"
+            months: [6, 7, 8, 9]
+          - name: "クーラーボックス"
+            category: "生活用品"
+            reason: "飲み物の保冷"
+            months: [6, 7, 8, 9]
+
+    rental_car:
+      description: "レンタカー利用時"
+      additional_items:
+        - name: "レンタカー予約確認書"
+          category: "移動関連"
+          reason: "予約番号・営業所情報"
+          critical: true
+        - name: "クレジットカード"
+          category: "金銭関連"
+          reason: "デポジット・支払い用"
+          critical: true
+        - name: "免責補償制度の確認"
+          category: "移動関連"
+          reason: "万が一の事故に備えて"
+          type: "task"
+        - name: "返却時刻・ガソリン満タン返し確認"
+          category: "移動関連"
+          reason: "追加料金を避ける"
+          type: "task"
+
+  bus:
+    display_name: "バス"
+    highway_bus:
+      description: "高速バス・夜行バス"
+      items:
+        comfort:
+          - name: "ネックピロー"
+            category: "移動関連"
+            reason: "長時間の座位対策"
+            critical: true
+          - name: "ブランケット/上着"
+            category: "移動関連"
+            reason: "車内の冷房対策"
+          - name: "アイマスク・耳栓"
+            category: "移動関連"
+            reason: "夜行バスでの睡眠用"
+            condition: "night_bus"
+          - name: "スリッパ"
+            category: "移動関連"
+            reason: "足のむくみ対策"
+
+        hygiene:
+          - name: "ウェットティッシュ"
+            category: "生活用品"
+            reason: "車内での清潔保持"
+          - name: "マスク"
+            category: "生活用品"
+            reason: "乾燥・感染対策"
+
+        entertainment:
+          - name: "モバイルバッテリー"
+            category: "移動関連"
+            reason: "充電設備がない場合に備えて"
+            critical: true
+          - name: "イヤホン"
+            category: "移動関連"
+            reason: "音楽・動画視聴用"
+
+      recommendations:
+        - "乗車地・降車地の正確な場所確認"
+        - "休憩時間・場所の事前確認"
+        - "座席タイプ（3列/4列）の確認"
+        - "トイレ付きバスかどうかの確認"
+
+    local_bus:
+      description: "路線バス"
+      items:
+        - name: "小銭（両替用）"
+          category: "金銭関連"
+          reason: "運賃支払い用"
+        - name: "交通系ICカード"
+          category: "移動関連"
+          reason: "スムーズな乗降"
+          condition: "ic_compatible"
+
+  other:
+    display_name: "その他"
+    bicycle:
+      description: "自転車"
+      items:
+        - name: "ヘルメット"
+          category: "移動関連"
+          reason: "安全対策"
+          critical: true
+        - name: "自転車用ライト"
+          category: "移動関連"
+          reason: "夜間走行時必須"
+        - name: "レインウェア"
+          category: "天気対応"
+          reason: "急な雨に備えて"
+        - name: "パンク修理キット"
+          category: "移動関連"
+          reason: "緊急時対応"
+          condition: "long_distance"
+
+    motorcycle:
+      description: "バイク"
+      items:
+        - name: "ヘルメット（フルフェイス推奨）"
+          category: "移動関連"
+          reason: "法律で義務・安全対策"
+          critical: true
+        - name: "ライディンググローブ"
+          category: "移動関連"
+          reason: "手の保護"
+          critical: true
+        - name: "プロテクター入りジャケット"
+          category: "移動関連"
+          reason: "安全対策"
+          critical: true
+        - name: "レインウェア（バイク用）"
+          category: "天気対応"
+          reason: "防水・防風対策"
+
+# 共通の推奨事項
+general_recommendations:
+  all_methods:
+    - "予約確認書・チケットのデジタルバックアップ"
+    - "交通機関の遅延・運休情報の確認方法を把握"
+    - "代替ルートの事前確認"
+    - "緊急連絡先の控え"
+
+  long_distance:
+    - "腰痛対策グッズ（クッション等）"
+    - "エコノミークラス症候群予防（こまめな水分補給・ストレッチ）"
+    - "常備薬の携帯"
