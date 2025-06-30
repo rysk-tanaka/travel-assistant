@@ -62,6 +62,13 @@ def create_bot() -> commands.Bot:
         except Exception as e:
             logger.error(f"Failed to load cog: {e}")
 
+        # Load schedule commands cog
+        try:
+            await bot.load_extension("src.bot.schedule_commands")
+            logger.info("Loaded ScheduleCommands cog")
+        except Exception as e:
+            logger.error(f"Failed to load schedule commands cog: {e}")
+
         # Sync slash commands
         try:
             synced = await bot.tree.sync()

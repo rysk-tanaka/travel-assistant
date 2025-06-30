@@ -5,7 +5,7 @@ Type definitions for TravelAssistant.
 Python 3.12+の新しい型構文を使用します。
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Literal, TypedDict
 from uuid import uuid4
 
@@ -22,6 +22,8 @@ type ChecklistStatus = Literal["planning", "ongoing", "completed"]
 type ItemCategory = Literal[
     "移動関連", "仕事関連", "服装・身だしなみ", "生活用品", "金銭関連", "天気対応", "地域特有"
 ]
+type FlightStatus = Literal["scheduled", "delayed", "cancelled", "arrived"]
+type AccommodationType = Literal["hotel", "ryokan", "airbnb", "friends", "other"]
 
 
 # TypedDict definitions
@@ -244,3 +246,128 @@ class TripChecklist(BaseModel):
             lines.append("")
 
         return "\n".join(lines)
+
+
+# Itinerary-related Models
+class FlightInfo(BaseModel):
+    """フライト情報."""
+
+    flight_number: str = Field(..., description="便名")
+    airline: str = Field(..., description="航空会社")
+    departure_airport: str = Field(..., description="出発空港コード")
+    arrival_airport: str = Field(..., description="到着空港コード")
+    scheduled_departure: datetime = Field(..., description="予定出発時刻")
+    scheduled_arrival: datetime = Field(..., description="予定到着時刻")
+    actual_departure: datetime | None = Field(default=None, description="実際の出発時刻")
+    actual_arrival: datetime | None = Field(default=None, description="実際の到着時刻")
+    terminal: str | None = Field(default=None, description="ターミナル")
+    gate: str | None = Field(default=None, description="搭乗ゲート")
+    seat: str | None = Field(default=None, description="座席番号")
+    confirmation_code: str | None = Field(default=None, description="予約確認番号")
+    status: FlightStatus = Field(default="scheduled", description="フライト状態")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def flight_duration(self) -> timedelta:
+        """フライト時間を計算."""
+        return self.scheduled_arrival - self.scheduled_departure
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_early_morning(self) -> bool:
+        """早朝便かどうか."""
+        return self.scheduled_departure.hour < 8
+
+
+class AccommodationInfo(BaseModel):
+    """宿泊情報."""
+
+    name: str = Field(..., description="宿泊施設名")
+    type: AccommodationType = Field(..., description="宿泊タイプ")
+    check_in: datetime = Field(..., description="チェックイン時刻")
+    check_out: datetime = Field(..., description="チェックアウト時刻")
+    address: str = Field(..., description="住所")
+    phone: str | None = Field(default=None, description="電話番号")
+    confirmation_code: str | None = Field(default=None, description="予約確認番号")
+    notes: str | None = Field(default=None, description="備考")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def nights(self) -> int:
+        """宿泊日数."""
+        return (self.check_out.date() - self.check_in.date()).days
+
+
+class TransportSegment(BaseModel):
+    """移動区間情報."""
+
+    type: TransportMethod = Field(..., description="交通手段")
+    provider: str | None = Field(default=None, description="運行会社")
+    from_location: str = Field(..., description="出発地")
+    to_location: str = Field(..., description="到着地")
+    departure_time: datetime = Field(..., description="出発時刻")
+    arrival_time: datetime = Field(..., description="到着時刻")
+    reservation_required: bool = Field(default=False, description="予約必須かどうか")
+    confirmation_code: str | None = Field(default=None, description="予約確認番号")
+
+
+class Meeting(BaseModel):
+    """会議・イベント情報."""
+
+    title: str = Field(..., description="タイトル")
+    location: str = Field(..., description="場所")
+    start_time: datetime = Field(..., description="開始時刻")
+    end_time: datetime = Field(..., description="終了時刻")
+    attendees: list[str] = Field(default_factory=list, description="参加者")
+    notes: str | None = Field(default=None, description="備考")
+
+
+class TripItinerary(BaseModel):
+    """旅行行程."""
+
+    trip_id: str = Field(..., description="旅行ID")
+    flights: list[FlightInfo] = Field(default_factory=list, description="フライト情報")
+    accommodations: list[AccommodationInfo] = Field(default_factory=list, description="宿泊情報")
+    transport_segments: list[TransportSegment] = Field(
+        default_factory=list, description="その他の移動"
+    )
+    meetings: list[Meeting] = Field(default_factory=list, description="会議・イベント")
+    created_at: datetime = Field(default_factory=datetime.now, description="作成日時")
+    updated_at: datetime = Field(default_factory=datetime.now, description="更新日時")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def timeline_events(self) -> list[tuple[datetime, str, str]]:
+        """時系列でイベントを整理."""
+        events = []
+
+        # フライト
+        for flight in self.flights:
+            events.append(
+                (flight.scheduled_departure, "flight_departure", f"✈️ {flight.flight_number} 出発")
+            )
+            events.append(
+                (flight.scheduled_arrival, "flight_arrival", f"🛬 {flight.arrival_airport} 到着")
+            )
+
+        # 宿泊
+        for hotel in self.accommodations:
+            events.append((hotel.check_in, "hotel_checkin", f"🏨 {hotel.name} チェックイン"))
+            events.append((hotel.check_out, "hotel_checkout", f"🏨 {hotel.name} チェックアウト"))
+
+        # その他の移動
+        for transport in self.transport_segments:
+            events.append(
+                (
+                    transport.departure_time,
+                    "transport",
+                    f"🚃 {transport.from_location} → {transport.to_location}",
+                )
+            )
+
+        # 会議
+        for meeting in self.meetings:
+            events.append((meeting.start_time, "meeting", f"📅 {meeting.title}"))
+
+        # 時刻順にソート
+        return sorted(events, key=lambda x: x[0])

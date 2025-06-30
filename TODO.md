@@ -113,12 +113,12 @@
 
 ### ✈️ 移動スケジュール連携機能（新規追加）
 
-- [ ] **Phase 3-A: 基礎実装**
-  - [ ] データモデル定義（FlightInfo, AccommodationInfo, TripItinerary）
-  - [ ] モデルのテスト作成
-  - [ ] 基本的なDiscordコマンド実装（/schedule）
-  - [ ] 手動でのフライト・ホテル情報入力機能
-  - [ ] タイムライン表示機能
+- [x] **Phase 3-A: 基礎実装**
+  - [x] データモデル定義（FlightInfo, AccommodationInfo, TripItinerary）
+  - [x] モデルのテスト作成
+  - [x] 基本的なDiscordコマンド実装（/schedule）
+  - [x] 手動でのフライト・ホテル情報入力機能
+  - [x] タイムライン表示機能
 
 - [ ] **Phase 3-B: 連携強化**
   - [ ] スマートチェックリストとの統合
