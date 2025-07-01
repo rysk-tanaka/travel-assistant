@@ -86,3 +86,23 @@ dmypy.json
 # Personal trip data (should be in private repo)
 trips/
 personal_templates/
+
+# Railway
+railway.json
+.railway/
+
+# Secrets and credentials
+secrets/
+*.pem
+*.key
+credentials/
+
+# Backup files
+backup/
+*.backup
+
+# Node.js (if needed for Railway CLI)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
