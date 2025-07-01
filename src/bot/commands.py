@@ -4,7 +4,7 @@ Discord bot commands.
 Discord Botのコマンドとインタラクションを定義します。
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import discord
@@ -130,6 +130,151 @@ class TripCommands(commands.Cog):
             logger.error(f"Error generating checklist: {e}")
             await interaction.followup.send("❌ チェックリストの生成中にエラーが発生しました。")
 
+    @app_commands.command(name="trip_reschedule", description="既存の旅行の日程を変更します")
+    @app_commands.describe(
+        checklist_id="変更する旅行のチェックリストID（省略時は最新の旅行）",
+        start_date="新しい開始日 (YYYY-MM-DD形式)",
+        end_date="新しい終了日 (YYYY-MM-DD形式)",
+    )
+    async def trip_reschedule(
+        self,
+        interaction: discord.Interaction,
+        start_date: str,
+        end_date: str,
+        checklist_id: str | None = None,
+    ) -> None:
+        """既存の旅行の日程を変更."""
+        await interaction.response.defer()
+
+        try:
+            # 日付の検証
+            new_start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            new_end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+            if new_end_date < new_start_date:
+                await interaction.followup.send(
+                    "❌ エラー: 終了日は開始日より後である必要があります。"
+                )
+                return
+
+            # チェックリストを取得
+            user_id = str(interaction.user.id)
+            checklist = await self._get_checklist_for_reschedule(user_id, checklist_id)
+
+            if not checklist:
+                await interaction.followup.send(
+                    "❌ チェックリストが見つかりません。\n"
+                    "先に `/trip_smart` で旅行計画を作成してください。"
+                )
+                return
+
+            # 日程変更を実行
+            result = self._execute_reschedule(checklist, new_start_date, new_end_date)
+
+            # 成功メッセージ
+            embed = discord.Embed(
+                title="✅ 日程を変更しました",
+                description=result["description"],
+                color=discord.Color.green(),
+            )
+
+            # 更新されたチェックリストを表示
+            checklist_embed = self.create_checklist_embed(checklist)
+            view = ChecklistView(checklist.id, self)
+
+            await interaction.followup.send(embeds=[embed, checklist_embed], view=view)
+
+            logger.info(
+                f"Rescheduled checklist {checklist.id} for user {user_id}: "
+                f"{result['old_dates']} -> {result['new_dates']}"
+            )
+
+        except ValueError as e:
+            await interaction.followup.send(
+                f"❌ エラー: 日付の形式が正しくありません。YYYY-MM-DD形式で入力してください。\n{e}"
+            )
+        except Exception as e:
+            logger.error(f"Error rescheduling trip: {e}")
+            await interaction.followup.send("❌ 日程変更中にエラーが発生しました。")
+
+    async def _get_checklist_for_reschedule(
+        self, user_id: str, checklist_id: str | None
+    ) -> TripChecklist | None:
+        """日程変更用のチェックリストを取得."""
+        if checklist_id:
+            # 指定されたIDのチェックリストを取得
+            checklist = self.checklists.get(checklist_id)
+            if checklist and checklist.user_id == user_id:
+                return checklist
+            return None
+
+        # 最新のチェックリストを取得
+        user_checklists = [cl for cl in self.checklists.values() if cl.user_id == user_id]
+        if not user_checklists:
+            return None
+
+        # 作成日時でソートして最新を取得
+        return sorted(user_checklists, key=lambda x: x.created_at, reverse=True)[0]
+
+    def _execute_reschedule(
+        self, checklist: TripChecklist, new_start_date: date, new_end_date: date
+    ) -> dict[str, Any]:
+        """日程変更を実行し、結果を返す."""
+        # 変更前の情報を保存
+        old_start_date = checklist.start_date
+        old_end_date = checklist.end_date
+        old_duration = (old_end_date - old_start_date).days
+
+        # 日程を更新
+        checklist.start_date = new_start_date
+        checklist.end_date = new_end_date
+        checklist.updated_at = datetime.now()
+
+        new_duration = (new_end_date - new_start_date).days
+
+        # 調整メッセージを生成
+        adjustment_msg = self._generate_adjustment_message(checklist, old_duration, new_duration)
+        weather_update_msg = self._get_weather_update_message()
+
+        description = (
+            f"**{checklist.destination}**旅行の日程を更新しました。\n\n"
+            f"**変更前**: {old_start_date} ～ {old_end_date} ({old_duration}泊)\n"
+            f"**変更後**: {new_start_date} ～ {new_end_date} ({new_duration}泊)"
+            f"{adjustment_msg}{weather_update_msg}"
+        )
+
+        return {
+            "description": description,
+            "old_dates": f"{old_start_date} - {old_end_date}",
+            "new_dates": f"{new_start_date} - {new_end_date}",
+        }
+
+    def _generate_adjustment_message(
+        self, checklist: TripChecklist, old_duration: int, new_duration: int
+    ) -> str:
+        """期間変更に伴う調整メッセージを生成."""
+        if new_duration == old_duration:
+            return ""
+
+        adjustments = checklist.adjust_for_duration_change(old_duration, new_duration)
+
+        if adjustments:
+            msg = "\n\n📦 **期間変更に伴う調整:**\n"
+            for adj in adjustments:
+                msg += f"• {adj}\n"
+            return msg
+
+        if new_duration > old_duration:
+            return f"\n📦 期間が{old_duration}泊から{new_duration}泊に延長されました。"
+        else:
+            return f"\n📦 期間が{old_duration}泊から{new_duration}泊に短縮されました。"
+
+    def _get_weather_update_message(self) -> str:
+        """天気予報更新メッセージを取得."""
+        if settings.is_feature_enabled("weather"):
+            return "\n⛅ 天気予報の更新は次回のアップデートで対応予定です。"
+        return ""
+
     @app_commands.command(name="trip_history", description="過去の旅行履歴を表示します")
     @app_commands.describe(limit="表示する件数（デフォルト: 10件）")
     async def trip_history(self, interaction: discord.Interaction, limit: int = 10) -> None:
@@ -213,6 +358,7 @@ class TripCommands(commands.Cog):
             name="📋 利用可能なコマンド",
             value=(
                 "`/trip_smart` - スマートチェックリスト生成\n"
+                "`/trip_reschedule` - 旅行の日程変更\n"
                 "`/trip_history` - 過去の旅行履歴\n"
                 "`/trip_check` - チェックリスト確認（開発中）"
             ),
@@ -404,6 +550,128 @@ class ChecklistView(discord.ui.View):
         except Exception as e:
             logger.error(f"Unexpected error saving checklist: {e}")
             await interaction.followup.send("❌ 予期しないエラーが発生しました。", ephemeral=True)
+
+    @discord.ui.button(
+        label="📅 日程変更", style=discord.ButtonStyle.secondary, custom_id="reschedule"
+    )
+    async def reschedule(
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
+        """日程変更モーダルを表示."""
+        # チェックリストを取得
+        checklist = self.cog.checklists.get(self.checklist_id)
+        if not checklist:
+            await interaction.response.send_message(
+                "チェックリストが見つかりませんでした。", ephemeral=True
+            )
+            return
+
+        # 日程変更モーダルを表示
+        modal = RescheduleModal(checklist, self.cog)
+        await interaction.response.send_modal(modal)
+
+
+class RescheduleModal(discord.ui.Modal, title="旅行の日程を変更"):
+    """日程変更用のモーダル."""
+
+    def __init__(self, checklist: TripChecklist, cog: TripCommands):
+        """初期化."""
+        super().__init__()
+        self.checklist = checklist
+        self.cog = cog
+
+        # 現在の日付をデフォルト値として設定
+        self.start_date.default = checklist.start_date.strftime("%Y-%m-%d")
+        self.end_date.default = checklist.end_date.strftime("%Y-%m-%d")
+
+    start_date: discord.ui.TextInput[discord.ui.Modal] = discord.ui.TextInput(
+        label="新しい開始日",
+        placeholder="例: 2025-07-01",
+        required=True,
+        max_length=10,
+        min_length=10,
+    )
+
+    end_date: discord.ui.TextInput[discord.ui.Modal] = discord.ui.TextInput(
+        label="新しい終了日",
+        placeholder="例: 2025-07-03",
+        required=True,
+        max_length=10,
+        min_length=10,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        """送信時の処理."""
+        try:
+            # 日付の検証
+            new_start_date = datetime.strptime(self.start_date.value, "%Y-%m-%d").date()
+            new_end_date = datetime.strptime(self.end_date.value, "%Y-%m-%d").date()
+
+            if new_end_date < new_start_date:
+                await interaction.response.send_message(
+                    "❌ エラー: 終了日は開始日より後である必要があります。", ephemeral=True
+                )
+                return
+
+            # 日程変更前の情報を保存
+            old_start_date = self.checklist.start_date
+            old_end_date = self.checklist.end_date
+            old_duration = (old_end_date - old_start_date).days
+
+            # 日程を更新
+            self.checklist.start_date = new_start_date
+            self.checklist.end_date = new_end_date
+            self.checklist.updated_at = datetime.now()
+
+            # 日程変更に伴う調整
+            new_duration = (new_end_date - new_start_date).days
+            duration_changed = new_duration != old_duration
+
+            # 期間が変更された場合の調整
+            adjustment_msg = ""
+            if duration_changed:
+                adjustments = self.checklist.adjust_for_duration_change(old_duration, new_duration)
+
+                if adjustments:
+                    adjustment_msg = "\n\n📦 **期間変更に伴う調整:**\n"
+                    for adj in adjustments:
+                        adjustment_msg += f"• {adj}\n"
+
+            # 成功メッセージ
+            embed = discord.Embed(
+                title="✅ 日程を変更しました",
+                description=(
+                    f"**{self.checklist.destination}**旅行の日程を更新しました。\n\n"
+                    f"**変更前**: {old_start_date} ～ {old_end_date} ({old_duration}泊)\n"
+                    f"**変更後**: {new_start_date} ～ {new_end_date} ({new_duration}泊)"
+                    f"{adjustment_msg}"
+                ),
+                color=discord.Color.green(),
+            )
+
+            # 更新されたチェックリストを表示
+            checklist_embed = self.cog.create_checklist_embed(self.checklist)
+            view = ChecklistView(self.checklist.id, self.cog)
+
+            await interaction.response.send_message(
+                embeds=[embed, checklist_embed], view=view, ephemeral=False
+            )
+
+            logger.info(
+                f"Rescheduled checklist {self.checklist.id} via modal: "
+                f"{old_start_date} - {old_end_date} -> {new_start_date} - {new_end_date}"
+            )
+
+        except ValueError as e:
+            await interaction.response.send_message(
+                f"❌ エラー: 日付の形式が正しくありません。YYYY-MM-DD形式で入力してください。\n{e}",
+                ephemeral=True,
+            )
+        except Exception as e:
+            logger.error(f"Error rescheduling trip via modal: {e}")
+            await interaction.response.send_message(
+                "❌ 日程変更中にエラーが発生しました。", ephemeral=True
+            )
 
 
 class TripHistoryView(discord.ui.View):

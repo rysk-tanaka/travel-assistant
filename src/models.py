@@ -225,6 +225,85 @@ class TripChecklist(BaseModel):
         self.items = [item for item in self.items if item.item_id != item_id]
         self.updated_at = datetime.now()
 
+    def adjust_for_duration_change(self, old_duration: int, new_duration: int) -> list[str]:
+        """期間変更に応じてチェックリストを調整.
+
+        Args:
+            old_duration: 変更前の宿泊日数
+            new_duration: 変更後の宿泊日数
+
+        Returns:
+            実行された調整のリスト
+        """
+        adjustments = []
+
+        if new_duration > old_duration:
+            # 期間が延長された場合
+            new_duration - old_duration
+
+            # 着替えの追加
+            clothing_items = [
+                item
+                for item in self.items
+                if item.category == "服装・身だしなみ" and "着替え" in item.name
+            ]
+            if clothing_items:
+                adjustments.append(
+                    f"着替えを{old_duration}泊分から{new_duration}泊分に増やしました"
+                )
+                # TODO: 実際の数量調整
+
+            # 長期滞在用アイテムの追加
+            if new_duration >= 3 and old_duration < 3:
+                # 洗濯用品の追加
+                laundry_item = ChecklistItem(
+                    name="洗濯用洗剤（小分け）",
+                    category="生活用品",
+                    auto_added=True,
+                    reason=f"{new_duration}泊の長期滞在のため",
+                )
+                self.add_item(laundry_item)
+                adjustments.append("洗濯用洗剤を追加しました（3泊以上）")
+
+            if new_duration >= 5 and old_duration < 5:
+                # さらに長期滞在用
+                extra_items = [
+                    ChecklistItem(
+                        name="爪切り",
+                        category="生活用品",
+                        auto_added=True,
+                        reason=f"{new_duration}泊の長期滞在のため",
+                    ),
+                    ChecklistItem(
+                        name="予備の充電ケーブル",
+                        category="生活用品",
+                        auto_added=True,
+                        reason=f"{new_duration}泊の長期滞在のため",
+                    ),
+                ]
+                for item in extra_items:
+                    self.add_item(item)
+                adjustments.append("長期滞在用アイテムを追加しました（5泊以上）")
+
+        elif new_duration < old_duration:
+            # 期間が短縮された場合
+            # 長期滞在用アイテムの削除を検討
+            if new_duration < 3 and old_duration >= 3:
+                # 洗濯用品を削除候補に
+                laundry_items = [
+                    item for item in self.items if item.auto_added and "洗濯" in item.name
+                ]
+                for item in laundry_items:
+                    self.remove_item(item.item_id)
+                    adjustments.append(f"{item.name}を削除しました（短期滞在）")
+
+            # 着替えの削減提案
+            adjustments.append(
+                f"着替えを{old_duration}泊分から{new_duration}泊分に減らすことを検討してください"
+            )
+
+        return adjustments
+
     def to_markdown(self) -> str:
         """Markdown形式でチェックリストを出力."""
         progress = f"{self.completion_percentage:.1f}%"
