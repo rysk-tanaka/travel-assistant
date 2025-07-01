@@ -331,6 +331,7 @@ class TripChecklist(BaseModel):
 class FlightInfo(BaseModel):
     """フライト情報."""
 
+    id: str = Field(default_factory=lambda: str(uuid4()), description="フライトID")
     flight_number: str = Field(..., description="便名")
     airline: str = Field(..., description="航空会社")
     departure_airport: str = Field(..., description="出発空港コード")
@@ -361,6 +362,7 @@ class FlightInfo(BaseModel):
 class AccommodationInfo(BaseModel):
     """宿泊情報."""
 
+    id: str = Field(default_factory=lambda: str(uuid4()), description="宿泊ID")
     name: str = Field(..., description="宿泊施設名")
     type: AccommodationType = Field(..., description="宿泊タイプ")
     check_in: datetime = Field(..., description="チェックイン時刻")
@@ -380,6 +382,7 @@ class AccommodationInfo(BaseModel):
 class TransportSegment(BaseModel):
     """移動区間情報."""
 
+    id: str = Field(default_factory=lambda: str(uuid4()), description="移動区間ID")
     type: TransportMethod = Field(..., description="交通手段")
     provider: str | None = Field(default=None, description="運行会社")
     from_location: str = Field(..., description="出発地")
@@ -393,6 +396,7 @@ class TransportSegment(BaseModel):
 class Meeting(BaseModel):
     """会議・イベント情報."""
 
+    id: str = Field(default_factory=lambda: str(uuid4()), description="会議ID")
     title: str = Field(..., description="タイトル")
     location: str = Field(..., description="場所")
     start_time: datetime = Field(..., description="開始時刻")
