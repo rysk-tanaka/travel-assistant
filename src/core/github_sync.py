@@ -16,7 +16,7 @@ from github.ContentFile import ContentFile
 from github.Repository import Repository
 
 from src.config.settings import settings
-from src.models import ChecklistItem, GitHubSyncError, ItemCategory, TripChecklist
+from src.models import ChecklistItem, GitHubSyncError, ItemCategory, TripChecklist, TripItinerary
 from src.utils.logging_config import get_logger
 from src.utils.markdown_utils import MarkdownProcessor
 
@@ -462,3 +462,124 @@ template_used: "{checklist.template_used or "manual"}"
         )
 
         return checklist
+
+    def save_itinerary(self, itinerary: TripItinerary, user_id: str) -> str:
+        """旅行行程をGitHubに保存."""
+        if not settings.ENABLE_GITHUB_SYNC:
+            logger.warning("GitHub sync is disabled")
+            return ""
+
+        try:
+            # ファイルパスを生成
+            file_path = self._get_itinerary_file_path(itinerary, user_id)
+            content = self._generate_itinerary_markdown_content(itinerary, user_id)
+
+            # ファイルの作成または更新
+            try:
+                file_or_files = self.repo.get_contents(file_path, ref=settings.GITHUB_BRANCH)
+                if isinstance(file_or_files, list):
+                    raise GitHubSyncError(f"Path {file_path} is a directory, not a file")
+
+                file = file_or_files
+                self.repo.update_file(
+                    path=file_path,
+                    message=f"Update itinerary: {itinerary.trip_id}",
+                    content=content,
+                    sha=file.sha,
+                    branch=settings.GITHUB_BRANCH,
+                )
+                logger.info(f"Updated itinerary at: {file_path}")
+            except GithubException:
+                # ファイルが存在しない場合は新規作成
+                self.repo.create_file(
+                    path=file_path,
+                    message=f"Create itinerary: {itinerary.trip_id}",
+                    content=content,
+                    branch=settings.GITHUB_BRANCH,
+                )
+                logger.info(f"Created new itinerary at: {file_path}")
+
+            # メタデータの保存
+            self._save_itinerary_metadata(itinerary, user_id)
+
+            # GitHub URLを返す
+            return f"{settings.github_repo_url}/blob/{settings.GITHUB_BRANCH}/{file_path}"
+
+        except Exception as e:
+            logger.error(f"Failed to save itinerary: {e}")
+            raise GitHubSyncError(f"Failed to save itinerary: {e}") from e
+
+    def _get_itinerary_file_path(self, itinerary: TripItinerary, user_id: str) -> str:
+        """旅行行程のGitHub上のファイルパスを生成."""
+        # trip_idから日付と目的地を抽出（例: "20250701-札幌-business"）
+        parts = itinerary.trip_id.split("-")
+        if len(parts) >= 2:
+            date_str = parts[0]
+            destination = "-".join(parts[1:])
+        else:
+            date_str = dt.now().strftime("%Y%m%d")
+            destination = "unknown"
+
+        # YYYYMMDD形式から年月を抽出
+        year = date_str[:4]
+        month = date_str[4:6]
+
+        filename = f"{date_str}-{destination}-itinerary.md"
+        return f"trips/{year}/{month}/{filename}"
+
+    def _save_itinerary_metadata(self, itinerary: TripItinerary, user_id: str) -> None:
+        """旅行行程のメタデータを保存."""
+        metadata_path = self._get_itinerary_file_path(itinerary, user_id).replace(
+            ".md", "_metadata.json"
+        )
+
+        metadata = {
+            "trip_id": itinerary.trip_id,
+            "user_id": user_id,
+            "created_at": itinerary.created_at.isoformat(),
+            "updated_at": itinerary.updated_at.isoformat(),
+            "event_count": {
+                "flights": len(itinerary.flights),
+                "accommodations": len(itinerary.accommodations),
+                "meetings": len(itinerary.meetings),
+                "transport_segments": len(itinerary.transport_segments),
+                "total_events": len(itinerary.timeline_events),
+            },
+        }
+
+        content = json.dumps(metadata, ensure_ascii=False, indent=2)
+
+        try:
+            file_or_files = self.repo.get_contents(metadata_path, ref=settings.GITHUB_BRANCH)
+            if isinstance(file_or_files, list):
+                raise GitHubSyncError(f"Path {metadata_path} is a directory, not a file")
+
+            file = file_or_files
+            self.repo.update_file(
+                path=metadata_path,
+                message=f"Update itinerary metadata: {itinerary.trip_id}",
+                content=content,
+                sha=file.sha,
+                branch=settings.GITHUB_BRANCH,
+            )
+        except GithubException:
+            self.repo.create_file(
+                path=metadata_path,
+                message=f"Create itinerary metadata: {itinerary.trip_id}",
+                content=content,
+                branch=settings.GITHUB_BRANCH,
+            )
+
+    def _generate_itinerary_markdown_content(self, itinerary: TripItinerary, user_id: str) -> str:
+        """旅行行程のMarkdownコンテンツを生成."""
+        # Front Matterを追加
+        front_matter = f"""---
+type: "itinerary"
+trip_id: "{itinerary.trip_id}"
+user_id: "{user_id}"
+created_at: "{itinerary.created_at.isoformat()}"
+updated_at: "{itinerary.updated_at.isoformat()}"
+---
+
+"""
+        return front_matter + itinerary.to_markdown()

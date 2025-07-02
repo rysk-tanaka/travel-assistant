@@ -4,17 +4,22 @@ Unit tests for models module.
 外部依存のないモデルクラスのテストを実施します。
 """
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 import pytest
 
 from src.models import (
+    AccommodationInfo,
     ChecklistItem,
+    FlightInfo,
     GitHubSyncError,
+    Meeting,
     TemplateNotFoundError,
+    TransportSegment,
     TravelAssistantError,
     TripChecklist,
+    TripItinerary,
     TripRequest,
     WeatherAPIError,
 )
@@ -323,3 +328,280 @@ def test_github_sync_error():
     error = GitHubSyncError("GitHubへの保存に失敗しました")
     assert "GitHub" in str(error)
     assert isinstance(error, TravelAssistantError)
+
+
+# Additional tests for uncovered functionality
+def test_adjust_for_duration_change_extend(sample_checklist: TripChecklist):
+    """期間延長時のチェックリスト調整."""
+    # 2泊から4泊に延長
+    adjustments = sample_checklist.adjust_for_duration_change(2, 4)
+
+    assert len(adjustments) > 0
+    assert any("洗濯用洗剤" in adj for adj in adjustments)
+
+    # 洗濯用洗剤が追加されているか確認
+    laundry_items = [item for item in sample_checklist.items if "洗濯" in item.name]
+    assert len(laundry_items) > 0
+    assert laundry_items[0].auto_added is True
+
+
+def test_adjust_for_duration_change_extend_long(sample_checklist: TripChecklist):
+    """長期滞在への調整."""
+    # 2泊から5泊に延長
+    adjustments = sample_checklist.adjust_for_duration_change(2, 5)
+
+    assert len(adjustments) > 0
+    assert any("長期滞在用" in adj for adj in adjustments)
+
+    # 長期滞在用アイテムが追加されているか確認
+    long_stay_items = [
+        item
+        for item in sample_checklist.items
+        if item.auto_added and "長期滞在" in (item.reason or "")
+    ]
+    assert len(long_stay_items) >= 2  # 爪切りと予備充電ケーブル
+
+
+def test_adjust_for_duration_change_shorten(sample_checklist: TripChecklist):
+    """期間短縮時のチェックリスト調整."""
+    # まず洗濯用品を追加
+    laundry_item = ChecklistItem(
+        name="洗濯用洗剤（小分け）",
+        category="生活用品",
+        auto_added=True,
+        reason="3泊の長期滞在のため",
+    )
+    sample_checklist.add_item(laundry_item)
+    initial_count = len(sample_checklist.items)
+
+    # 3泊から2泊に短縮
+    adjustments = sample_checklist.adjust_for_duration_change(3, 2)
+
+    assert len(adjustments) > 0
+    assert any("削除しました" in adj for adj in adjustments)
+    assert len(sample_checklist.items) < initial_count
+
+
+def test_get_item(sample_checklist: TripChecklist):
+    """アイテムの取得."""
+    # 名前でアイテムを検索する機能があるか確認
+    # 存在するアイテムの取得
+    item = None
+    for i in sample_checklist.items:
+        if i.name == "パスポート":
+            item = i
+            break
+
+    assert item is not None
+    assert item.name == "パスポート"
+
+
+# Test different trip purposes
+def test_trip_request_with_different_purposes():
+    """異なる目的の旅行リクエスト."""
+    # business purpose
+    business_trip = TripRequest(
+        destination="東京",
+        start_date=date(2025, 7, 10),
+        end_date=date(2025, 7, 12),
+        purpose="business",
+        user_id="user123",
+    )
+    assert business_trip.purpose == "business"
+
+    # leisure purpose
+    leisure_trip = TripRequest(
+        destination="京都",
+        start_date=date(2025, 8, 10),
+        end_date=date(2025, 8, 15),
+        purpose="leisure",
+        user_id="user123",
+    )
+    assert leisure_trip.purpose == "leisure"
+
+
+# Test different transport methods
+def test_trip_request_with_different_transport():
+    """異なる交通手段の旅行リクエスト."""
+    transport_methods = ["airplane", "train", "car", "bus", "other"]
+
+    for method in transport_methods:
+        trip = TripRequest(
+            destination="名古屋",
+            start_date=date(2025, 7, 20),
+            end_date=date(2025, 7, 22),
+            purpose="business",
+            transport_method=method,
+            user_id="user123",
+        )
+        assert trip.transport_method == method
+
+
+# Flight-related model tests
+def test_flight_info():
+    """FlightInfo モデルのテスト."""
+    flight = FlightInfo(
+        flight_number="ANA123",
+        airline="全日空",
+        departure_airport="HND",
+        arrival_airport="CTS",
+        scheduled_departure=datetime(2025, 6, 28, 9, 0),
+        scheduled_arrival=datetime(2025, 6, 28, 10, 35),
+        terminal="第2",
+        gate="66",
+        seat="12A",
+        confirmation_code="ABC123",
+    )
+
+    assert flight.flight_number == "ANA123"
+    assert flight.airline == "全日空"
+    assert flight.departure_airport == "HND"
+    assert flight.arrival_airport == "CTS"
+    assert flight.status == "scheduled"
+
+    # Computed fields
+    assert flight.flight_duration == timedelta(hours=1, minutes=35)
+    assert flight.is_early_morning is False
+
+    # Early morning flight
+    early_flight = FlightInfo(
+        flight_number="JAL456",
+        airline="日本航空",
+        departure_airport="HND",
+        arrival_airport="KIX",
+        scheduled_departure=datetime(2025, 6, 28, 6, 30),
+        scheduled_arrival=datetime(2025, 6, 28, 8, 0),
+    )
+    assert early_flight.is_early_morning is True
+
+
+def test_accommodation_info():
+    """AccommodationInfo モデルのテスト."""
+    hotel = AccommodationInfo(
+        name="札幌グランドホテル",
+        type="hotel",
+        check_in=datetime(2025, 6, 28, 15, 0),
+        check_out=datetime(2025, 6, 30, 11, 0),
+        address="札幌市中央区北1条西4丁目",
+        phone="011-261-3311",
+        confirmation_code="HTL789",
+        notes="朝食付きプラン",
+    )
+
+    assert hotel.name == "札幌グランドホテル"
+    assert hotel.type == "hotel"
+    assert hotel.nights == 2
+
+
+def test_transport_segment():
+    """TransportSegment モデルのテスト."""
+    train = TransportSegment(
+        type="train",
+        provider="JR北海道",
+        from_location="新千歳空港駅",
+        to_location="札幌駅",
+        departure_time=datetime(2025, 6, 28, 11, 0),
+        arrival_time=datetime(2025, 6, 28, 11, 37),
+        reservation_required=False,
+    )
+
+    assert train.type == "train"
+    assert train.provider == "JR北海道"
+    assert train.from_location == "新千歳空港駅"
+    assert train.to_location == "札幌駅"
+    assert train.reservation_required is False
+
+
+def test_meeting():
+    """Meeting モデルのテスト."""
+    meeting = Meeting(
+        title="プロジェクト打ち合わせ",
+        location="札幌オフィス会議室A",
+        start_time=datetime(2025, 6, 29, 10, 0),
+        end_time=datetime(2025, 6, 29, 12, 0),
+        attendees=["山田太郎", "佐藤花子", "鈴木一郎"],
+        notes="資料は事前に共有済み",
+    )
+
+    assert meeting.title == "プロジェクト打ち合わせ"
+    assert meeting.location == "札幌オフィス会議室A"
+    assert len(meeting.attendees) == 3
+    assert "山田太郎" in meeting.attendees
+
+
+def test_trip_itinerary():
+    """TripItinerary モデルのテスト."""
+    flight = FlightInfo(
+        flight_number="ANA123",
+        airline="全日空",
+        departure_airport="HND",
+        arrival_airport="CTS",
+        scheduled_departure=datetime(2025, 6, 28, 9, 0),
+        scheduled_arrival=datetime(2025, 6, 28, 10, 35),
+    )
+
+    hotel = AccommodationInfo(
+        name="札幌グランドホテル",
+        type="hotel",
+        check_in=datetime(2025, 6, 28, 15, 0),
+        check_out=datetime(2025, 6, 30, 11, 0),
+        address="札幌市中央区北1条西4丁目",
+    )
+
+    itinerary = TripItinerary(
+        trip_id="20250628-札幌-business",
+        flights=[flight],
+        accommodations=[hotel],
+    )
+
+    assert itinerary.trip_id == "20250628-札幌-business"
+    assert len(itinerary.flights) == 1
+    assert len(itinerary.accommodations) == 1
+
+    # Timeline events
+    timeline = itinerary.timeline_events
+    assert len(timeline) == 4  # 出発、到着、チェックイン、チェックアウト
+
+    # Events should be sorted by time
+    event_times = [event[0] for event in timeline]
+    assert event_times == sorted(event_times)
+
+    # Check event types
+    assert timeline[0][1] == "flight_departure"
+    assert timeline[1][1] == "flight_arrival"
+    assert timeline[2][1] == "hotel_checkin"
+    assert timeline[3][1] == "hotel_checkout"
+
+
+# Additional model field tests
+def test_checklist_with_custom_id():
+    """カスタムIDを持つチェックリストの作成."""
+    custom_id = "custom-checklist-001"
+    checklist = TripChecklist(
+        id=custom_id,
+        destination="東京",
+        start_date=date(2025, 7, 1),
+        end_date=date(2025, 7, 2),
+        purpose="business",
+        user_id="user123",
+    )
+    assert checklist.id == custom_id
+
+
+def test_checklist_update_timestamp():
+    """チェックリストの更新タイムスタンプ."""
+    checklist = TripChecklist(
+        destination="東京",
+        start_date=date(2025, 7, 1),
+        end_date=date(2025, 7, 2),
+        purpose="business",
+        user_id="user123",
+    )
+
+    initial_updated = checklist.updated_at
+
+    # Add item updates timestamp
+    item = ChecklistItem(name="テストアイテム", category="生活用品")
+    checklist.add_item(item)
+
+    assert checklist.updated_at > initial_updated

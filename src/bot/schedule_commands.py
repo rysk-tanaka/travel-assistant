@@ -12,6 +12,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from src.core.github_sync import GitHubSync
 from src.models import (
     AccommodationInfo,
     FlightInfo,
@@ -31,11 +32,13 @@ class ScheduleCommands(commands.Cog):
         self.bot = bot
         # 旅行行程を一時的に保存（本来はDBやRedisを使用）
         self.itineraries: dict[str, TripItinerary] = {}
+        # GitHub同期機能
+        self.github_sync = GitHubSync()
         logger.info("ScheduleCommands cog initialized")
 
     @app_commands.command(name="schedule", description="旅行スケジュールを管理します")
     @app_commands.describe(
-        action="実行するアクション (add_flight/add_hotel/add_meeting/edit/show/clear)"
+        action="実行するアクション (add_flight/add_hotel/add_meeting/edit/show/save/clear)"
     )
     async def schedule(self, interaction: discord.Interaction, action: str) -> None:
         """スケジュール管理のメインコマンド."""
@@ -49,12 +52,14 @@ class ScheduleCommands(commands.Cog):
             await self._handle_edit_schedule(interaction)
         elif action == "show":
             await self._handle_show_schedule(interaction)
+        elif action == "save":
+            await self._handle_save_schedule(interaction)
         elif action == "clear":
             await self._handle_clear_schedule(interaction)
         else:
             await interaction.response.send_message(
                 "❌ 無効なアクションです。"
-                "add_flight, add_hotel, add_meeting, edit, show, clear "
+                "add_flight, add_hotel, add_meeting, edit, show, save, clear "
                 "のいずれかを指定してください。",
                 ephemeral=True,
             )
@@ -128,6 +133,74 @@ class ScheduleCommands(commands.Cog):
         else:
             await interaction.response.send_message(
                 "📅 クリアするスケジュールがありません。", ephemeral=True
+            )
+
+    async def _handle_save_schedule(self, interaction: discord.Interaction) -> None:
+        """スケジュールをGitHubに保存するハンドラー."""
+        user_id = str(interaction.user.id)
+        trip_id = f"{user_id}_current"
+
+        if trip_id not in self.itineraries:
+            await interaction.response.send_message(
+                "📅 保存するスケジュールがありません。", ephemeral=True
+            )
+            return
+
+        itinerary = self.itineraries[trip_id]
+
+        # 保存先の目的地を旅行IDから抽出してtrip_idを更新
+        if (
+            not any(itinerary.flights)
+            and not any(itinerary.accommodations)
+            and not any(itinerary.meetings)
+        ):
+            await interaction.response.send_message(
+                "📅 スケジュールに内容がありません。フライト、宿泊、会議情報を追加してください。",
+                ephemeral=True,
+            )
+            return
+
+        # 目的地を決定（フライト情報から推測）
+        destination = "未定"
+        date_str = datetime.now().strftime("%Y%m%d")
+
+        if itinerary.flights:
+            # 最初のフライトの到着空港から目的地を推測
+            first_flight = itinerary.flights[0]
+            destination = first_flight.arrival_airport
+            date_str = first_flight.scheduled_departure.strftime("%Y%m%d")
+        elif itinerary.accommodations:
+            # 宿泊情報から日付を取得
+            first_hotel = itinerary.accommodations[0]
+            date_str = first_hotel.check_in.strftime("%Y%m%d")
+        elif itinerary.meetings:
+            # 会議情報から日付を取得
+            first_meeting = itinerary.meetings[0]
+            date_str = first_meeting.start_time.strftime("%Y%m%d")
+
+        # trip_idを適切な形式に更新
+        itinerary.trip_id = f"{date_str}-{destination}"
+
+        # 処理中メッセージ
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # GitHubに保存
+            github_url = self.github_sync.save_itinerary(itinerary, user_id)
+
+            if github_url:
+                await interaction.followup.send(
+                    f"✅ スケジュールをGitHubに保存しました！\n🔗 {github_url}", ephemeral=True
+                )
+            else:
+                await interaction.followup.send(
+                    "⚠️ GitHub同期が無効になっています。", ephemeral=True
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to save itinerary: {e}")
+            await interaction.followup.send(
+                f"❌ GitHubへの保存中にエラーが発生しました: {e}", ephemeral=True
             )
 
     def _create_schedule_embed(self, itinerary: TripItinerary) -> discord.Embed:

@@ -84,26 +84,37 @@ class ChecklistDetailView(discord.ui.View):
 def create_detailed_checklist_text(checklist: Any) -> str:
     """チェックリストの詳細テキストを作成."""
     lines = []
-    lines.append(f"{'=' * 50}")
-    lines.append(f"{checklist.destination}旅行チェックリスト")
-    lines.append(f"{'=' * 50}")
-    lines.append(f"期間: {checklist.start_date} ～ {checklist.end_date}")
-    lines.append(f"目的: {'出張' if checklist.purpose == 'business' else 'レジャー'}")
-    progress = f"{checklist.completion_percentage:.1f}%"
-    lines.append(f"進捗: {progress} ({checklist.completed_count}/{checklist.total_count})")
+
+    # Header
+    trip_type = "出張" if checklist.purpose == "business" else "旅行"
+    lines.append(f"# {checklist.destination} {trip_type}チェックリスト")
+    lines.append("")
+    lines.append(f"**期間**: {checklist.start_date} ～ {checklist.end_date}")
+    lines.append(f"**目的**: {checklist.purpose}")
     lines.append("")
 
-    for category, items in checklist.items_by_category.items():
-        lines.append(f"\n【{category}】")
-        lines.append("-" * 30)
+    # Items by category
+    if checklist.items:
+        for category, items in checklist.items_by_category.items():
+            lines.append(f"## {category}")
+            lines.append("")
 
-        for i, item in enumerate(items, 1):
-            check = "✓" if item.checked else "□"
-            lines.append(f"{check} {i:2d}. {item.name}")
-            if item.auto_added and item.reason:
-                lines.append(f"     ⭐ {item.reason}")
+            for item in items:
+                check_mark = "✅" if item.checked else "⬜"
+                lines.append(f"{check_mark} {item.name}")
+                if item.auto_added and item.reason:
+                    lines.append(f"  - ⭐ {item.reason}")
+            lines.append("")
+    else:
+        lines.append("チェックリストにアイテムがありません")
+        lines.append("")
 
-    lines.append(f"\n{'=' * 50}")
-    lines.append(f"合計: {checklist.total_count}項目")
+    # Progress summary
+    lines.append("## 📊 進捗状況")
+    lines.append("")
+    completion_percentage = f"{checklist.completion_percentage:.2f}%"
+    lines.append(
+        f"**完了**: {checklist.completed_count}/{checklist.total_count} ({completion_percentage})"
+    )
 
     return "\n".join(lines)

@@ -423,6 +423,17 @@ class TripCommands(commands.Cog):
 
             embed.add_field(name=f"📋 {category}", value="\n".join(value_lines), inline=True)
 
+        # 進捗フィールドを追加
+        progress_text = (
+            f"{checklist.completion_percentage:.2f}% "
+            f"({checklist.completed_count}/{checklist.total_count})"
+        )
+        embed.add_field(
+            name="📊 進捗",
+            value=progress_text,
+            inline=True,
+        )
+
         embed.set_footer(
             text=f"ID: {checklist.id} | 作成: {checklist.created_at.strftime('%Y-%m-%d %H:%M')}"
         )

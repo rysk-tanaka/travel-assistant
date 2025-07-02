@@ -454,3 +454,104 @@ class TripItinerary(BaseModel):
 
         # 時刻順にソート
         return sorted(events, key=lambda x: x[0])
+
+    def to_markdown(self) -> str:
+        """旅行行程をMarkdown形式で出力."""
+        lines = ["# 旅行行程", ""]
+
+        # タイムライン
+        self._add_timeline_section(lines)
+
+        # フライト情報詳細
+        self._add_flights_section(lines)
+
+        # 宿泊情報詳細
+        self._add_accommodations_section(lines)
+
+        # 会議・イベント情報詳細
+        self._add_meetings_section(lines)
+
+        return "\n".join(lines)
+
+    def _add_timeline_section(self, lines: list[str]) -> None:
+        """タイムラインセクションを追加."""
+        timeline_events = self.timeline_events
+        if not timeline_events:
+            return
+
+        lines.append("## 📅 タイムライン")
+        lines.append("")
+
+        current_date = None
+        for event_time, _event_type, event_desc in timeline_events:
+            event_date = event_time.date()
+
+            # 日付が変わったら見出しを追加
+            if event_date != current_date:
+                current_date = event_date
+                lines.append(f"### {event_date.strftime('%Y年%m月%d日 (%a)')}")
+                lines.append("")
+
+            time_str = event_time.strftime("%H:%M")
+            lines.append(f"- **{time_str}** {event_desc}")
+
+        lines.append("")
+
+    def _add_flights_section(self, lines: list[str]) -> None:
+        """フライト情報セクションを追加."""
+        if not self.flights:
+            return
+
+        lines.append("## ✈️ フライト情報")
+        lines.append("")
+
+        for flight in self.flights:
+            lines.append(f"### {flight.flight_number} ({flight.airline})")
+            lines.append(f"- 区間: {flight.departure_airport} → {flight.arrival_airport}")
+            lines.append(f"- 出発: {flight.scheduled_departure.strftime('%Y/%m/%d %H:%M')}")
+            lines.append(f"- 到着: {flight.scheduled_arrival.strftime('%Y/%m/%d %H:%M')}")
+            if flight.confirmation_code:
+                lines.append(f"- 予約番号: {flight.confirmation_code}")
+            if flight.seat:
+                lines.append(f"- 座席: {flight.seat}")
+            lines.append("")
+
+    def _add_accommodations_section(self, lines: list[str]) -> None:
+        """宿泊情報セクションを追加."""
+        if not self.accommodations:
+            return
+
+        lines.append("## 🏨 宿泊情報")
+        lines.append("")
+
+        for hotel in self.accommodations:
+            lines.append(f"### {hotel.name}")
+            lines.append(f"- タイプ: {hotel.type}")
+            lines.append(f"- チェックイン: {hotel.check_in.strftime('%Y/%m/%d %H:%M')}")
+            lines.append(f"- チェックアウト: {hotel.check_out.strftime('%Y/%m/%d %H:%M')}")
+            lines.append(f"- 住所: {hotel.address}")
+            if hotel.phone:
+                lines.append(f"- 電話: {hotel.phone}")
+            if hotel.confirmation_code:
+                lines.append(f"- 予約番号: {hotel.confirmation_code}")
+            lines.append("")
+
+    def _add_meetings_section(self, lines: list[str]) -> None:
+        """会議・イベント情報セクションを追加."""
+        if not self.meetings:
+            return
+
+        lines.append("## 📅 会議・イベント")
+        lines.append("")
+
+        for meeting in self.meetings:
+            lines.append(f"### {meeting.title}")
+            lines.append(f"- 場所: {meeting.location}")
+            start_str = meeting.start_time.strftime("%Y/%m/%d %H:%M")
+            end_str = meeting.end_time.strftime("%H:%M")
+            lines.append(f"- 時間: {start_str} - {end_str}")
+            if meeting.attendees:
+                lines.append(f"- 参加者: {', '.join(meeting.attendees)}")
+            if meeting.notes:
+                lines.append(f"- 備考: {meeting.notes}")
+            lines.append("")
